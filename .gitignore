@@ -1,0 +1,14 @@
+*.log 
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.lol
+*.lot
+*.out
+*.lof
+*.toc
+*.run.xml
+*.synctex.gz
+Tesi-frn.pdf
+Tesi-frn.tex
