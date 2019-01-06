@@ -1,0 +1,136 @@
+%*******************************************%
+%											%
+%	 	Modello di Tesi di Laurea			%
+%		di Luca Vicentini					%
+%											%
+%*******************************************%
+       
+% I seguenti commenti speciali impostano:
+% 1. utf8 come codifica di input,
+% 2. PDFLaTeX come motore di composizione;
+% 3. Tesi.tex come documento principale;
+% 4. il controllo ortografico italiano per l'editor.
+
+% !TEX encoding = UTF-8 Unicode
+% !TEX TS-program = pdflatex
+% !TEX root = Tesi.tex
+% !TeX spellcheck = it_IT
+
+\documentclass[11pt,a4paper,twoside,openright]{book}
+               
+\usepackage[T1]{fontenc}
+% codifica dei font:
+% NOTA BENE! richiede una distribuzione *completa* di LaTeX
+% per esempio TeXLive o MiKTeX *complete*
+
+\usepackage[utf8]{inputenc}
+% codifica di input; anche [latin1] va bene
+% NOTA BENE! va accordata con le preferenze dell'editor
+
+\usepackage{pifont}
+% importa più simboli, Postscript ZapfDingbats
+
+\usepackage{microtype}
+% microtipografia
+
+\usepackage[english,italian]{babel}
+% per scrivere in italiano e in inglese;
+% l'ultima lingua (l'italiano) risulta predefinita
+                                           
+\usepackage[binding=5mm]{layaureo}
+% margini ottimizzati per l'A4; rilegatura di 5 mm
+
+\usepackage{frontespizio}
+% frontespizo
+% per includerlo nel documento bisogna:
+% 1. compilare una prima volta Tesi.tex;
+% 2. compilare a parte Tesi-frn.tex, generato dalla compilazione precedente;
+% 3. compilare ancora Tesi.tex. 
+
+\usepackage{emptypage}
+% pagine vuote senza testatina e piede di pagina
+
+\usepackage{indentfirst}
+% rientra il primo capoverso di ogni sezione
+
+\usepackage{booktabs}
+% tabelle
+
+\usepackage{tabularx}
+% tabelle di larghezza prefissata
+
+\usepackage{graphicx}
+% immagini
+
+\usepackage{subfig}
+% sottofigure, sottotabelle
+
+\usepackage{caption}
+% didascalie
+
+\usepackage{listings, framed}
+% codici
+
+\usepackage[font=small]{quoting}
+% citazioni
+
+\usepackage{amsmath,amssymb,amsthm}
+% matematica
+
+\usepackage[italian]{varioref}
+% riferimenti completi della pagina
+\addto\captionsitalian{%
+\renewcommand{\lstlistlistingname}{Elenco dei codici}}
+
+%\addto\captionsitalian{%
+%\renewcommand{\lstlistlistingname}{Elenco delle tabelle}
+
+\usepackage{epigraph}
+
+\usepackage[style=numeric,backend=biber]{biblatex}
+                                          
+\addbibresource{bibliografia.bib}
+% database di biblatex 
+                                          
+\usepackage{chngpage,calc}
+% centra il frontespizio
+
+\usepackage[dvipsnames]{xcolor}
+% colori
+
+\usepackage{lipsum}
+% testo fittizio
+
+\usepackage{eurosym}
+% simbolo dell'euro
+
+\usepackage{hyperref}
+% collegamenti ipertestuali
+
+\input{impostazioni-tesi}
+% file con le impostazioni personali
+
+\begin{document}
+\frontmatter
+
+%******************************************************************
+% Materiale iniziale
+%******************************************************************
+\input{materiale-iniziale-finale/frontespizio}
+\input{materiale-iniziale-finale/indici}
+\cleardoublepage
+
+%******************************************************************
+% Materiale principale
+%******************************************************************
+\mainmatter
+\input{capitoli/bitcoin}
+\input{capitoli/ethereum}
+\appendix
+
+% *****************************************************************
+% Materiale finale
+%******************************************************************
+\backmatter
+\input{materiale-iniziale-finale/bibliografia}
+\end{document}
