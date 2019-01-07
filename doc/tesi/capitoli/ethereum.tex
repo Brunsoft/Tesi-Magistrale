@@ -11,26 +11,30 @@ In questo capitolo andremo ad approfondire Ethereum, una delle alt-chain in circ
 
 \section{Introduzione}
 Ethereum è spesso descritto come "the world computer". Dal punto di vista informatico Ethereum è una macchina a stati deterministica ma praticamente illimitata, costituita da uno stato sigleton accessibile a livello mondiale ed una propria macchina virtuale \textit{EVM} che applica le modifiche a tale stato. E' un'infrastruttura open source, globalmente decentralizzata sviluppata per eseguire programmi denominati \textit{smart contract}. Utilizza la blockchain per sincronizzare e memorizzare le modifiche di stato del sistema, assieme ad una criptovaluta chiamata \textit{ether} utilizzata per limitare le risorse per l'esecuzione dei contratti. 
-
 Diversamente da Bitcoin, che ha un linguaggio di scriptiong molto limitato, Ethereum è stato concepito per essere una blockchain programmabile per l'uso generico che esegue una macchina virtuale in grado di eseguire codice di complessità arbitraria ed illimitata. Il linguaggio script di Bitcoin è stato intenzionalmente vincolato a delle semplici valutazioni true / false delle condizioni di spesa, il linguaggio di Ethereum invece risulta Turing-completo, può infatti funzionare come un general-purpose computer.
 
 \subsection*{La nascita di Ethereum}
 Ethereum è stato concepito in un momento in cui le persone hanno riconosciuto la potenza di un modello quale Bitcoin e stavano cercando di andare oltre alle applicazioni di criptovaluta. L'enigma principale era: costruire su Bitcoin o avveriare una nuova blockchin? Costruire al di sopra di Bitcoin significava vivere entro gli intenzionali limiti imposti da tale rete cercando soluzioni alternative. L'insieme limitato di tipologia di dati e dimensione della memorizzazione di questi sembrava limitare il numero di applicazioni che potevano essere eseguite su bitcoin, qualsiasi ulteriore aggiunta avrebbe implicato la nacessità di implementare ulteriori strati fuori catena, anullando così molti dei vantaggi nell'uso di una blockchain pubblica. Per tale progetto si necessitava di maggiore libertà e fluidità rimanendo on-chain, l'unica opzione era una nuova blockchain.
-
 Verso la fine del 2013, Vitalik Buterin, un giovane programmatore apassionato di Bitcoin, pensò di estendere le capacità di Bitcoin e Mastercoin. Nell'ottobre di quell'anno, propose un approccio più generalizzato al team di Mastercoin, che consentiva contratti flessibili e programmabili, anche se non Turing-completi, in sostituzione dell'allora attuale linguaggio contrattuale di Mastercoin, ma questa proposta risultava una modifica troppo radicale er adattarsi alla loro roadmap di sviluppo. 
-
 Nel dicembre 2013, Vitalik condivise un white paper che delineava l'idea di Ethereum: una blockchain Turing-completa per tutti gli usi. Si aggiunse al team  il Dr. Gavin Wood, attuale CTO, che lo aiutò nel perfezionale il protocollo che attualmente porta il nome di Ethereum. 
-
-Lo sviluppo di Ethereum è stato pianificato in quattro fasi distinte, con importanti cambiamenti in ciascuna fase. Ogni fase può includere delle subreleases, note come "hard fork", che apportando funzionalità non retro compatibili. Le quattro fasi di sviluppo portano il nome di \textit{Frontier, Homestead, Metropolis, Serenity}. I fork intermedi programmati sono \textit{Ice Age, DAO, Tangerine Whistle, Spurious Dragon, Byzantinum e Costantinople}. Ma vediamoli in timeline:
-\begin{description}
-	\item[Blocco \#0] Frontier - Fase iniziale di Ethereum, 30 luglio 2015 - marzo 2016.
-	\item[Blocco \#200000] Ice Age - Hard fork per introdurre un aumento di difficoltà esponenziale, per motivare la futura transazione verso PoS.
-	\item[Blocco \#1150000] Homestead - Seconda fase di Ethereum lanciata a marzo 2016.
-	\item[Blocco \#1192000] DAO - Hard fork che ha rimborsato le vittime del contratto DAO hacked causando la separazione di Ethereum ed Ethereum Classic.
-	\item[Blocco \#2463000] Tangerine Whistle - Hard fork per modificare il calcolo del gas per certa operazioni di I/O.
-	\item[Blocco \#2675000] Spurious Dragon - Hard fork per sventare vettori d'attacco DoS e meccanismi di protezione ai replay attack.
-	\item[Blocco \#4370000] Metropolis Byzantium - Terza tappa di Ethereum lanciata nell'ottobre 2017
-\end{description}
+Lo sviluppo di Ethereum è stato pianificato in quattro fasi distinte, con importanti cambiamenti in ciascuna fase. Ogni fase può includere delle subreleases, note come "hard fork", che apportando funzionalità non retro compatibili. Le quattro fasi di sviluppo portano il nome di \textit{Frontier, Homestead, Metropolis, Serenity}. I fork intermedi programmati sono \textit{Ice Age, DAO, Tangerine Whistle, Spurious Dragon, Byzantinum e Costantinople}. L'elenco completo lo possiamo notare in Tabella~\ref{tab:fork-intermedi}.
+%
+\begin{table}[]
+	\centering
+	\begin{tabular}{|c|p{10cm}|}
+		\hline
+		\textbf{Numero blocco} & \textbf{Descrizione} \\ \hline
+		\lstinline|Blocco #0| & Frontier - Fase iniziale di Ethereum, 30 luglio 2015 - marzo 2016.\\ \hline
+		\lstinline|Blocco #200000| & Ice Age - Hard fork per introdurre un aumento di difficoltà esponenziale, per motivare la futura transazione verso PoS.\\ \hline
+		\lstinline|Blocco #1150000| & Homestead - Seconda fase di Ethereum lanciata a marzo 2016.\\ \hline
+		\lstinline|Blocco #1192000| & DAO - Hard fork che ha rimborsato le vittime del contratto DAO hacked causando la separazione di Ethereum ed Ethereum Classic.\\ \hline
+		\lstinline|Blocco #2463000| & Tangerine Whistle - Hard fork per modificare il calcolo del gas per certa operazioni di I/O.\\ \hline
+		\lstinline|Blocco #2675000| & Spurious Dragon - Hard fork per sventare vettori d'attacco DoS e meccanismi di protezione ai replay attack.\\ \hline
+		\lstinline|Blocco #4370000| & Metropolis Byzantium - Terza tappa di Ethereum lanciata nell'ottobre 2017.\\ \hline
+	\end{tabular}
+	\caption{Fork intermedi della blockchain Ethereum}
+	\label{tab:fork-intermedi}
+\end{table}
 Dopo Byzantium, rimangono altri due hard fork Metropolis Costantinople ed a seguire la fase finale Serenity.
 
 \subsection{Turing-completezza di Ethereum}
