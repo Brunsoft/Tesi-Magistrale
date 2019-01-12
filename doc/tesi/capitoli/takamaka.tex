@@ -97,6 +97,69 @@ Alla riga \ref{line:payable} sono presenti le annotazioni \lstinline|@Payable @E
 \section{Salvare i file Jar sulla Blockchain}
 Takamaka permette di conservare i jars sulla blockchain. Ci sono transazioni che memorizzano jar con riferimenti alle sue dipendenze, se presenti. Il meccanismo ricorda quello che viene fatto attualmente in Ivy o Ant: per memorizzare un jar $j$, viene creata una transazione $t$, che aggiunge $j$ alla blockchain, assieme ai riferimenti ad altre transazioni in cui le sue dipendenze, $d_1, \dots, d_n$, se presenti, sono state precedentemente memorizzate sulla blockchain. Il riferimento a $t$ può quindi essere utilizzato per memorizzare altri jars che dipendono da $j$. Le dipendenze ricorsive tra jars non sono consentite. Le eventuali dipendenze possono essere risolte in modo transitivo o non transitivo. Questo è legato alla costruzione del classpath per l'installazione dello smart contract (Sezione 5). Per memorizzare $j$ sulla blockchain, la transazione memorizzerà i seguenti dati:
 %
-\[<j, *d_1, t_1, \dots, *d_n, t_n>\]
+\[\langle j, *d_1, t_1, \dots, *d_n, t_n \rangle\]
 %
-dove $*d_1$ è il riferimento al jar $i$-esimo da cui dipende $j$, $t_1$ è invece un booleano che afferma se la dipendenza è transitiva o meno.
+dove $*d_1$ è il riferimento al jar $i$-esimo da cui dipende $j$, $t_1$ è invece un booleano che afferma se la dipendenza è transitiva o meno. 
+
+\section{Storage}
+Uno smart contract ha un proprio \textit{stato}, costituito dai valori dei suoi campi e dagli oggetti raggiungibili da essi, in modo ricorsivo. Tale stato è persistente sulla blockchain, dopo la creazione di un contratto o dopo l'esecuzione di una transazione contrattuale. Per efficienza vengono mantenuti solo gli aggiornamenti dello stato, anziché lo stato completo. Si noti che contratti distinti potrebbero condividere parte del loro stato, quindi una transazione su di un contratto potrebbe andare a modificare oggetti visibili ad un altro contratto, questo è uno standard per Java. Può essere usato come forma di comunicazione tra con tratti sulla blockchain. Gli stati di tutti i contratti installati su blockchain formano una struttura ad heap, persistente, chiamata \textit{storage}. I riferimenti agli oggetti di archiviazione sono chiamati \textit{storage references} e hanno la forma:
+%
+\[\langle block\_number, \mathit{transaction \_number}, \mathit{progressive} \rangle \]
+%
+questo significa che farà riferimento all'oggetto $progressive$-esimo istanziato durante l'esecuzione della transazione $transaction\_number$-esima, all'interno del blocco $block\_number$-esimo.
+
+Quando viene eseguita una transazione di contratto, lo stato del contratto viene caricaro in RAM, con i campi che contengono i riferimenti di memoria che riflettono i riferimenti di archiviazione dello stato persistente. Quindi una transazione viene eseguita all'interno di una standard \textit{Java Virtual Machine}, in RAM. Alla fine dell'esecuzione, tutti gli aggiornamenti dell'heap allo stato del contratto vengono resi persistenti nello storage. Questo avviene in modo automatico ed in maniera trasparente per il programmatore. Ciò significa che gli oggetti Java, in RAM, che possono essere persistenti sullo storage, come tutte le classi che implementano un contratto, devono avere la capacità di identificare gli eventuali aggiornamenti ai loro campi, in modo efficiente. Per questo motivo, Takamaka richiede che gli oggetti storage estendano \lstinline|takamaka.lang.Storage|: solo gli oggetti che estendono tale classe possono essere persistenti nello storage. Tutti questi aggiornamenti saranno memorizzati nello storage come \textit{storage updates}. Quest'ultimi saranno rappresentati da triple del tipo $\langle ref, sig, new\_value \rangle$, il che significa che il campo con firma $sig$ dell'oggetto il cui riferimento in memoria $ref$ è stato aggiornato al $new\_value$ indicato. Gli aggiornamenti possono essere compattati così da ridurne le dimensioni di archiviazione.
+
+Supponiamo che i client espongano la blockchain come oggetto accessibile tramite \lstinline|Blockchain.getInstance()|, con i seguenti metodi:
+
+\vspace{1ex}
+\noindent
+\lstinline|getCurrentTransaction()|:
+	restituisce la transazione corrente in esecuzione.
+	
+\vspace{1ex}
+\noindent
+\lstinline|getTopmostBlock()|:
+	produce il blocco più in alto del blockchaind.
+
+\vspace{1ex}
+\noindent
+\lstinline|deserialize(r)|:
+	produce un oggetto $o$ che è la deserializzazione dalla blockchain del riferimento di memoria $r$.
+	
+\vspace{1ex}
+\noindent
+\lstinline|deserializeLastUpdateFor(r, "C.f:D")|:
+	restituisce l'oggetto $o'$ tenuto all'interno del campo di riferimento \lstinline|Cf: D| (\textit{i.e.} il campo \lstinline|f|, definito nella classe \lstinline|C| e avente tipo di riferimento \lstinline|D|) di un oggetto container il cui riferimento nello storage è $r$.
+	
+\section{Creazione di uno smart contract}
+L'istanziazione una classe $C$, possibilmente implementando uno smart contract e quindi estendendo \lstinline|takamaka.lang.Contract| viene attivata da un utente della blockchain e consiste nella creazione di un'istanza di $C$. Il costruttore di $C$ viene chiamato con alcuni parametri. Lo stato risultante del contratto risulterà persistente in blockchain, come una set di aggiornamenti di storage. Questo set contiene gli aggiornamenti che portano all'ultima istanza di $C$, ma c'è la possibilità che contenga aggiornamenti di altri oggetti di storage utilizzati nell'implementazione di $C$. 
+
+Per istanziare $C$, è necessario specificare $*j$, il riferimento al jar fornendo così il classpath per l'esecuzione del costruttore $C$ ed un valore booleano $t$ che specifica se le dipendenze del jar devono essere incluse in modo transitivo. Inoltre deve essere specificata una firma $sig = C(\dots)$ del costruttore, ed infine i parametri $pars$ che tale costruttore deve specificare, se ce ne sono. Quindi un client riceve la richiesta di creare un nuovo contratto come: $\langle *j, t, sig, pars \rangle$. I parametri $pars$ possono essere valori primitivi, dati dalla serializzazione Java, oppure riferimenti ad oggetti nello storage. L'esecuzione del costruttore comporterà degli aggiornamenti allo stato, compresi quelli per inizializzare il nuovo oggetto. Tuttavia potrebbero essere modificati anche altri stored object, se raggiungibili dai parametri passati al costruttore. In conclusione, la transazione aggiunta alla blockchain consiste nella tupla $\langle *j, t, sig, pars, result, updates \rangle$, dove $result$ è la referenza allo storage al nuovo oggetto $o$ della classe $C$ e $update$ colleziona tutti gli aggiornamenti allo storage, compresi quelli che inizializzano i campi dell'oggetto $o$. Nel caso particolare in cui l'esecuzione del costruttore termina con un'eccezione, $result$ conterrà la descrizione di tale eccezione e $update$ non contiene modifice ad $o$, se è irraggiungibile.
+
+\section{Classi storage e la loro strumentazione}
+Le classi storage estendono \lstinline|takamaka.lang.Storage|. Poiché solo tali classi possono essere mantenute in modo permanente in blockchain, ne consegue che i loro campi devono essere primitivi o, in modo ricorsivo, avere una storage class. La classe \lstinline|takamaka.lang.Storage| implementa dei meccanismi base per tenere traccia del riferimento nello storage dell'istanza. Ciò significa che un oggetto nello storage $o$, quando sarà in RAM, potrebbe essere presente l'oggetto deserializzato $o'$, già presente in blockchain, in quel caso il suo campo \lstinline|onStorage| è settato a true, e i suoi campi \lstinline|blockNumber|, \lstinline|transactioNumber| e \lstinline|progressive| sono i riferimenti nello storage di $o'$. Ma $o$ potrebbe non essere ancora presente in blockchain e quindi rappresentare un nuovo storage object, istanziato durante l'esecuzione di una transazione, che potrebbe essere successivamente conservato su blockchain, al termine della transazione. In questo caso il campo \lstinline|inStorage| varrà false e i campi \lstinline|blockNumber|, \lstinline|transactionNumber| e \lstinline|progressive| conterranno i riferimenti nello storage assegnati ad $o'$ nel caso di mantenimento in blockchain. Per rappresentare queste due alternative, \lstinline|takamaka.lang.Storage| ha due costruttori.
+%
+\begin{lstlisting}
+	// constructor used by the programmer to build objects not yet in storage
+	protected C() {
+		this.inStorage = false;
+		this.storageReference = new StorageReference(
+			blockchain.getTopmostBlock().getNumber(),
+			blockchain.getCurrentTransaction().getNumber(),
+			nextProgressive++ );
+	}
+	...
+	// constructor used by Takamaka to build objects deserialized from storage
+	protected C( StorageReference storageReference ) {
+		this.inStorage = true;
+		this.storageReference = storageReference;
+	}
+	// vedi l'intera classe Storage sul paper Takamaka ■\cite{paper-takamaka:spoto}■
+\end{lstlisting}
+%
+Takamaka al termine della transazione, chiama $o$.\lstinline|extractUpdates(updates)|, su tutti gli oggetti $o$ raggiungibili dallo stato del contratto o dai parametri di transazione. Raccoglie quindi in \lstinline|update| gli aggiornamenti di $o$ di cui si dovrà tener traccia nello storage e restituisce la storage reference di $o$ nella blockchain. La classe \lstinline|takamaka.lang.Storage|, non definisce i campi che appartengono allo stato di un oggetto nello storage: saranno le sottoclassi a ridefinire \lstinline|extractUpdate| per creare gli update. I programmatori scriveranno le classi di storage come normali classi Java estendendo \lstinline|takamaka.lang.Storage|. Il codice di tali classi subirà poi una trasformazione automatica prima di essere eseguito, per consentire:
+\begin{enumerate}
+	\item la generazione degli update alla fine di ogni transazione: gli oggetti nello storage hanno campi strumentati che consentono a Takamaka di identificare le parti del loro stato che ha subito modifiche.
+	\item la deserializzazione, su richiesta, di storage object a cui si accede durante una transazione. Infatti, è teoricamente possibile caricare in RAM l'intero stato di un contratto, in modo ricorsivo, prima di una transazione. Ma tutto ciò sarebbe poco pratico dato che tale stato potrebbe essere molto grande e, inoltre, la deserializzare oggetti storage in RAM è un'operazione lenta poiché richiede l'accesso alla blockchain.
+\end{enumerate}
