@@ -163,3 +163,90 @@ Takamaka al termine della transazione, chiama $o$.\lstinline|extractUpdates(upda
 	\item la generazione degli update alla fine di ogni transazione: gli oggetti nello storage hanno campi strumentati che consentono a Takamaka di identificare le parti del loro stato che ha subito modifiche.
 	\item la deserializzazione, su richiesta, di storage object a cui si accede durante una transazione. Infatti, è teoricamente possibile caricare in RAM l'intero stato di un contratto, in modo ricorsivo, prima di una transazione. Ma tutto ciò sarebbe poco pratico dato che tale stato potrebbe essere molto grande e, inoltre, la deserializzare oggetti storage in RAM è un'operazione lenta poiché richiede l'accesso alla blockchain.
 \end{enumerate}
+Per esemplificare la trasformazione, supponiamo che un programmatore scriva la seguente classe:
+%
+\begin{lstlisting}[numbers=none,frame=none]
+	public class C extends Storage {
+		private D f1;
+		private int f2;
+		public C(pars) {
+			// implicit call to super() here
+			body
+		}
+		methods
+	}
+\end{lstlisting}
+%
+Tale classe viene compilata in java bytecode. Prima della sua esecuzione, viene automaticamente trasformato nel bytecode corrispondente al seguente sorgente:
+%
+\begin{lstlisting}
+	public class C extends Storage {
+		private D f1;
+		private D oldF1;
+		private boolean f1AlreadyLoaded;
+		private int f2;
+		private int oldF2;
+	
+		public C(pars) {
+			// implicit call to super() here
+			instrumented body     ■\label{line:instrumented1}■
+		}
+	
+		// constructor added for deserialization from storage
+		public C(StorageReference storageReference, int _f2) { ■\label{line:constructor_deserialization_C}■
+			super(storageReference);
+			f2 = oldF2 = _f2;
+		}
+		
+		// method that replaces f1 read operations
+		private D getF1() {
+			ensureLoadedF1();     ■\label{line:ensure1}■
+			return f1;
+		}
+		
+		// method that replaces f1 write operations
+		private void putF1(D _f1) {
+			ensureLoadedF1();     ■\label{line:ensure2}■
+			f1 = _f1;
+		}
+		
+		private void ensureLoadedF1() {
+			if (inStorage && !f1AlreadyLoaded) {
+				oldF1 = (D) blockchain.deserializeLastUpdateFor(
+					storageReference, "C.f1:D");
+				f1AlreadyLoaded = true;
+			}
+		}
+		
+		public StorageReference extractUpdates(Updates updates) {
+			StorageReference _this = super.extractUpdates(updates);
+			if (!inStorage || f1 != oldF1)
+				updates.add(<_this, "C.f1:D", recursiveExtract(f1, updates)>); ■\label{line:recursion1}■
+			recursiveExtract(oldF1, updates); ■\label{line:recursion2}■
+			if (!inStorage || f2 != oldF2)
+				updates.add(<_this, "C.f2:int", f2>);
+		
+			return _this;
+		}
+		
+		instrumented methods      ■\label{line:instrumented2}■
+	}
+\end{lstlisting}
+%
+Quando uno storage object viene deserializzato dallo storage, i suoi campi primitivi vengono inizializzati dal costruttore sintetico aggiunto alla riga \ref{line:constructor_deserialization_C}. I campi di riferimento, invece, restano \lstinline|null| dopo la deserializzazione e saranno settati più tardi, se richiamati (righe \ref{line:ensure1} e \ref{line:ensure2}). Di conseguenza, gli accessi ai campi di riferimento, come \lstinline|f1|, sono stati sostituiti da chiamate a metodi accessori, nel nostro caso \lstinline|getF1| e \lstinline|putF1|, assicurandosi che tale campo sia già stato caricato in blockchain. Questo comporta la sostituzione, alle righe \ref{line:instrumented1} e \ref{line:instrumented2}, del bytecode \lstinline|getfield C.f1: D| con \lstinline|invokevirtual C.getF1(): D|, e \lstinline|putfield C.f1: D| con \lstinline|invokevirtual C.putF1(): void|. Dopo la trasformazione, gli unici accessi a \lstinline|f1| saranno effettuati all'interno di \lstinline|getF1| e \lstinline|putF1|. 
+
+Il metodo sintetico \lstinline|extractUpdates| raccoglie i campi di \lstinline|this| che sono stati aggiornati dopo la sua creazione, prendendo il nuovo valore. Se \lstinline|this| è stato creato durante la transazione, allora non era \lstinline|inStorage| e tutti i valori dei suoi campi devono essere diventare persistenti. In caso contrario, solo i campi che hanno subito una modifica devono essere mantenuti. Il metodo \lstinline|extractUpdates| ricorre sia al valore corrente dei campi referenziati (riga \ref{line:recursion1}) sia al loro valore originale sulla blockchain (riga \ref{line:recursion2}). Questa seconda ricorsione risulta importante poiché il precedente valore potrebbe essere raggiunto da oggetti diventati irraggiungibili dal contratto una volta eseguita la transazione, ma che sono ancora recuperabili da altri contratti sullo storage. I loro aggiornamenti devono essere mantenuti o altrimenti questi contratti non vedranno queste modifiche.
+
+I campi dichiarati come \lstinline|transient| hanno avuto un trattamento speciale affinché non prendano parte allo stato persistente dell'oggetto. Quindi, il costruttore sintetico per la deserializzazione non riceve il loro valore e il metodo \lstinline|extrectUpdates| li salta. Non esiste una versione \lstinline|old| per loro, dal momento che non sarebbe utilizzata. Il valore dei campi \lstinline|transient| viene infatti perso alla fine della transazione. All'avvio di un'altra transazione, tali campi sembreranno reinpostati sul loro valore predefinito.
+
+L'introduzione di nuovi campi, costruttori e metodi per storage class potrebbe portare a conflitti di nome se, ad esempio, esistesse già un campo \lstinline|oldF1|. Per evitare che questo accada, la strumentazione utilizza nomi affettivamente illegali come identificatori in Java, ma legali se usati come identificatori in Java bytecode.
+
+La trasformazione può essere estesa alle classi storge \lstinline|C| che estendono la superclasse \lstinline|S| distinta da \lstinline|takamaka.lang.Storage|. Le classi storage possono solo estendere un'altra classe storage \lstinline|S| che dovrà essere una storage class, quindi estendere \lstinline|takamaka.lang.Storage|. L'unica differenza è che il costruttore per la deserializzazione (riga \ref{line:constructor_deserialization_C}), oltre a \lstinline|_f2|, riceverà anche gli altri campi primitivi \lstinline|_fs| definiti nelle superclassi. Tale \lstinline|_fs| sarà passato al costruttore della superclasse per la deserializzazione:
+%
+\begin{lstlisting}[numbers=none,frame=none]
+	public C(StorageReference storageRefernce, _fs, int _f2) {
+		super(storageReference, _fs);
+		f2 = oldF2 = _f2;
+	}
+\end{lstlisting}
+%
