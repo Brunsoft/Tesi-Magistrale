@@ -250,3 +250,101 @@ La trasformazione può essere estesa alle classi storge \lstinline|C| che estend
 	}
 \end{lstlisting}
 %
+\section{La classe takamaka.lang.Contract} \label{sec:contract-class}
+La superclasse di tutti i contratti implementa il meccanismo di base per tenere traccia del bilancio del contratto e suppurtare una registrazione di base. La sua implementazione è la seguente:
+%
+\begin{lstlisting}
+public abstract class Contract extends Storage {
+	private int balance; ■\label{line:balance_field}■
+	private transient Contract payer;   ■\label{line:payer_field}■
+	private final StorageList<String> logs = new StorageList<>(); ■\label{line:logs_field}■
+	
+	protected final void require(boolean condition, String message) {
+		if (!condition)
+		throw new RuntimeException(message);
+	}
+	
+	protected final void require(boolean condition) {
+		require(condition, "");
+	}
+	
+	protected final void pay(Contract whom, int amount) { ■\label{line:pay_method}■
+		require(whom != null, "destination contract cannot be null");
+		require(balance < amount, "insufficient funds");
+		balance -= amount;
+		whom.balance += amount;
+	}
+	
+	protected final void entry(Contract payer) { ■\label{line:entry_method}■
+		require(this != payer, "@Entry can only be called from a distinct contract object");
+		this.payer = payer;
+	}
+	
+	protected final void payableEntry(Contract payer, int amount) { ■\label{line:payableEntry_method}■
+		entry(payer);
+		payer.pay(this, amount);
+	}
+	
+	protected final Contract payer() {
+		return payer;
+	}
+	
+	protected final void log(String tag, Object... objects) { ■\label{line:log_method}■
+		logs.add(tag + ": " + Arrays.toString(objects));
+	}
+	
+	protected final int balance() { ■\label{line:balance_method}■
+		return balance;
+	}
+}
+\end{lstlisting}
+%
+Il campo \lstinline|balance|, alla riga \ref{line:balance_field}, rappresenta il saldo del contratto e gli si può accedere tramite il metodo con lo stesso nome, \lstinline|bilance()| alla riga \ref{line:balance_method}. I strasferimenti di denaro inter-contrattuali sono implementati dal metodo \lstinline|pay| alla riga \ref{line:pay_method}. Nota che il campo \lstinline|balance| è gestito e mantenuto sulla blockchain dal meccanismo di serializzazione di Takamaka. Lo stesso accade con il campo \lstinline|logs|, riga \ref{line:logs_field}, che memorizza un elenco di log popolati tramite il metodo \lstinline|log(\dots)| alla riga \ref{line:log_method}. I metodi \lstinline|require| possono essere utilizzati per verificare condizioni specifiche all'interno di un contratto. Il metodo \lstinline|entry| alla riga \ref{line:entry_method}, viene richiamato da Takamaka all'invocazione di un metodo \lstinline|@Entry| di un contratto. Allo stesso modo, Takamaka chiama il metodo \lstinline|payableEntry| alla riga \ref{line:payableEntry_method} quando viene invocato un metodo \lstinline|@Payable @Entry|. Il programmatore non può chiamare esplicitamente tali metodi, il metodo \lstinline|entry| richiede che il chiamato (\lstinline|this|) e il chiamante (\lstinline|payer|) siano distinti oggetti del contratto. 
+
+\section{Le annotazioni @Entry e @Payable}
+Nella Sezione \ref{sec:contract-class} abbiamo visto che i contratti hanno i metodi \lstinline|entry| e \lstinline|payableEntry|, questi vengono chaimati quando un contratto chiama rispettivamente un metodo \lstinline|@Entry| e \lstinline|@Payable @Entry| di un altro contratto. Questo risulta trasparente al programmatore. Supponiamo che il codice di un contratto \lstinline|Caller| chiami un metodo \lstinline|@Entry Callee.m(pars)|. Takamaka riconosce che \lstinline|m| è annotato come \lstinline|@Entry| e procede con il modificare tale metodo in \lstinline|Callee.m(pars, this)| che in questo modo passerà \lstinline|this| al contratto del chiamante come parametro aggiuntivo del metodo \lstinline|m| in questione. La stessa trasformazione avviene per le chiamate ai metodi \lstinline|@Payable @Entry|, in questo caso Takamaka verifica che il primo dei parametri \lstinline|pars| sia di tipo \lstinline|int|. Ma vediamo come vengono trasformati i vari metodi, partiamo da un esempio di metodo \lstinline|@Entry|:
+%
+\begin{lstlisting}[numbers=none,frame=none]
+	public @Entry T m(args) { body }
+\end{lstlisting}
+%
+che doventa:
+%
+\begin{lstlisting}[numbers=none,frame=none]
+	public @Entry T m(args, Contract caller) {
+		enrty(caller)
+	}
+\end{lstlisting}
+%
+In modo simile, per ogni metodo \lstinline|@Payable @Entry|:
+%
+\begin{lstlisting}[numbers=none,frame=none]
+	public @Payable @Entry T m(int amount, args) { body }
+\end{lstlisting}
+%
+che doventa:
+%
+\begin{lstlisting}[numbers=none,frame=none]
+	public @Payable @Entry T m(int amount, args, Contract caller) {
+		payableEntry(caller, amount);
+		body
+	}
+\end{lstlisting}
+%
+
+\section{Gas}
+Una transazione viene avviata quando un contratto pagante chiama un costruttore pubblico o un qualsiasi metodo di un contratto. Il chiamante deve specificare la quantità di gas da destinare per tale transazione. Takamaka eseguirà il codice del costruttore del contratto, e preleverà denaro dal contratto pagante, sulla base dell'efettivo gas consumato fino alla fine dell'esecuzione. Se tutto il gas viene consumato prima della fine della transazione, viene lanciata l'eccezione \lstinline|takamaka.lang.OutOfGasException|. Questo meccanismo è implementato dal codice strumentato, vale a dire che prima di ogni istruzione bytecode, Takamaka aggiunge una chiamata al metodo statico \lstinline|takamaka.lang.Gas.tick(int amount)|, che diminuisce, di \lstinline|amount|, il gas residuo per la transazione. Se il gas diventa negativo, il metodo \lstinline|tick|, lacerà l'eccezione \lstinline|OutOfGasException|. La scelta del valore di \lstinline|amount| dipende dall'istruzione che viene strumentata, facendo in modo che istruzioni con maggiore costo di esecuzione abbiano anche maggiore costo in gas.
+
+Takamaka non consente di catturare l'eccezione \lstinline|OutOfGasException|: Takamaka estende ogni tabella delle eccezioni nel del codice con un ulteriore gestore iniziale per l'eccezione \lstinline|OutOfGasException| che semplicemente rilancia l'eccezione. Questo serve a prevenire attacchi DOS che potrebbero mirare alla cattura dell'Eccezione \lstinline|OutOfGas| per portare all'esecuzione di un loop infinito al termine del gas.
+
+\section{Strumentazione e Verifica del Codice}
+La maggior parte delle funzionalità sono implementate in modo automatico da Takamaka tramite la strumentazione automatica del codice. La persistenza degli oggetti storage, metodi \lstinline|@Entry| e \lstinline|@Payable| oltre alla misurazione del gas. Tutto questo può essere eseguito in due modi:
+\begin{enumerate}
+	\item Dopo la compilazione, il codice scritto per Takamaka viene strumentato, \textbf{staticamente}, utilizzando una libreria di manipolazione del bytecode come \lstinline|asm| o \lstinline|bcel|. Questo ha il vantaggio di eseguire la strumentazione una sola volta. Tuttavia, o il client esegue tale strumentazione, oppure un soggetto eserno fornirà il codice strumentato. In quest'ultimo caso, il client deve verificare che i jar memorizzati sulla blockchain siano stati correttamente strumentati, facendo in modo di prevenire imbrogli. Takamaka dovrebbe verificare che le istruzioni siano preceduti da una chiamata \lstinline|Gas.tick(int amount)| e per il corretto valore \lstinline|amount|. Nel caso in cui questo controllo fallisse, l'installazione del jar dovrebbe essere rifiutata.
+	\item Ogni volta che una classe viene caricata tramite un jar in blockchain, quel codice viene dinamicamente strumentato utilizzando le Java instrumentation API. In questo modo un client Takamaka non dovrà fidarsi di una strumentazione eseguita da un soggetto esterno. Inoltre i jars mantenuti sulla blockchain saranno più piccoli dato che non saranno strumentati. Tuttavia il costo di tale strumentazione dovrà essere pagato per ogni transazione.
+\end{enumerate}
+%
+La verifica del codice deve comunque essere fatta per entrambe le opzioni. In particolare entrambe le opzioni richiedono a Takamaka di verificare che il jar in questione, utilizzi solamente i metodi white-listed della libreria Java standard.
+
+\section{Conclusioni}
+In questo capitolo abbiamo descritto un framework che permette ai programmatori di utilizzare un linguaggio ben conosciuto e moderne tecniche di programmazione per sviluppare smart contract per blockchain. Si nasconde la distinzione tra storage e memory objects: il programmatore dovrà estendere la classe \lstinline|Storage| per avere un oggetto di tipo storage. Ciò che descrive questo capitolo, e in modo più dettagliato sul paper \textit{Takamaka: A Java Framework for Smart Contracts}~\cite{paper-takamaka:spoto}, è completamente diverso da ciò che già si è tentato di fare, come l'utilizzo di Java per interagire con nodi Ethereum, che risulta già possibile con apposite librerie; oppure l'utilizzare Java per scrivere un nodo Ethereum. Questo lavoro, invece, spinge Java all'interno della blockchain, come proprio linguaggio di programmazione. L'implementazione di questo framework richiede una blockchain dotata di primitive per la serializzazione e deserializzazione di storage object. Quindi non può essere direttamente implementato sulla blockchain Ethereum.
