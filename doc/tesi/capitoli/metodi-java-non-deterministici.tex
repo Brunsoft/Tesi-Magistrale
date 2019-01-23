@@ -1,0 +1,47 @@
+% !TEX encoding = UTF-8
+% !TEX TS-program = pdflatex
+% !TEX root = ../Tesi.tex
+% !TEX spellcheck = it-IT
+
+%************************************************
+\chapter{Metodi Java non deterministici}
+\label{metodi-java-non-deterministici}
+%************************************************
+	Nel capitolo Takamaka \ref{takamaka-chapter}, così come in Ethereum \ref{ethereum-chapter}, abbiamo descritto le transazioni come delle operazioni sullo stato eseguite in modo deterministico. Ciò significa che ogni transazione modifica lo stato globale in modo calcolabile. Non può quindi esistere alcuna forma di entropia o casualità, nelle funzioni white-listed nel caso di Takamaka. Abbiamo concluso dicendo che nel caso necessitassimo di una qualsiasi forma di casualità, questa dovrà essere fornita al di fuori della blockchain. L'esecuzione di uno smart contract dovrà comunque portare al medesimo cambiamento di stato a tutti coloro che lo eseguiranno, dato il contesto della transazione e lo stato della blockchain al momento di tale esecuzione. 
+
+	Siamo quindi alla ricerca dei metodi Java che, in determinate situazioni, portano ad una forma di non-determinismo. Tali funzioni dovranno essere escluse dai metodi white-listed di Takamaka così da vietarne l'utilizzo durante la scrittura dei contratti. L'analisi comincia con uno dei package più utilizzati: \lstinline|java.lang|.
+
+	\section{Analisi del package java.lang}
+		Siamo difronte ad uno dei package più importanti delle API Java indispensabili per lo sviluppo anche delle più semplici Classi Java. 
+
+		\subsection{java.lang.Object}
+			\lstinline|java.lang.Object| è la super classe di tutte la classi Java perciò queste erediteranno tutti i metodi di Object. I metodi che implementa sono numerosi e in certi casi, alcuni di questi, possono causare non determinismo.
+
+			\subsubsection{Metodo hashCode()}
+			\label{object-hashcode}
+				Questo metodo restituisce l'hash code dell'oggetto su cui viene applicato. Ogni volta che viene invocato su di un oggetto, durante l'esecuzione di un'applicazione Java, deve restituire sempre lo stesso valore intero, a condizione che non vengano modificati delle variabili all'interno dell'oggetto stesso. Questo numero intero non deve rimanere coerente da un'esecuzione all'altra. Due oggetti risultano uguali in base al metodo \lstinline|equals(Object)|, quindi chiamare il metodo \lstinline|hashCode()| su ciascuno dei due oggetti deve ritornare lo stesso valore. Quindi, in definitiva, il metodo \lstinline|hashCode()| restituisce interi distinti per oggetti distinti. Ma vediamo come l'utilizzo di questo metodo su blockchain può riportare problemi:
+				%
+				\begin{lstlisting}
+	public int foo() {
+		return new Object().hashCode();
+	}
+				\end{lstlisting}
+				%
+				Come abbiamo detto qui sopra, il metodo \lstinline|hashCode()|, ritornerà valori uguali a patto che l'oggetto in questione non subisca cambiamenti. Tale valore non deve rimanere costante per ogni esecuzione e tanto meno in virtual machine diverse. L'utilizzo del metodo visto qui sopra sul sistema blockchain, può portare ad ottenere risultati diversi che possono influire sullo stato globale.
+			
+			\subsubsection{Metodo toString()}
+				Questo metodo ritorna una stringa che rappresenta testualmente l'oggetto, più nel dettaglio viene ritornata una stringa composta dal nome della classe di cui l'oggetto è istanza seguita dal carattere @ e la rappresentazione esadecimale dell'hash code di tale oggetto. In altre parole, viene ritornato:
+				%
+				\begin{lstlisting}[numbers=none,frame=none]
+	getClass().getName() + '@' + Integer.toHexString(hashCode())
+				\end{lstlisting}
+				%
+				Il problema può sorgere quando si tenta di implementare un metodo del tipo:
+				%
+				\begin{lstlisting}
+	public String foo() {
+		return new Object().toString();
+	}
+				\end{lstlisting}
+				%
+				Come visto nella sezione \ref{object-hashcode}, il valore della rappresentazione intera dell'hash ritornato dalla funzione \lstinline|hashCode()|, sarà diverso per ogni virtual machine, o meglio, ad ogni invocazione di \lstinline|foo()|. Questo implica che ogni qual volta che una transazione utilizzerà il metodo \lstinline|foo()| verrà ritornata una stringa diversa. Se questo fosse possibile su blockchain, ogni miner che procede con l'esecuzione tale metodo ne ricava un risultato diverso che può potenzialmente influire sullo stato globale salvato nello storage.
