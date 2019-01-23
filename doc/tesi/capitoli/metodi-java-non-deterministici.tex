@@ -45,3 +45,40 @@
 				\end{lstlisting}
 				%
 				Come visto nella sezione \ref{object-hashcode}, il valore della rappresentazione intera dell'hash ritornato dalla funzione \lstinline|hashCode()|, sarà diverso per ogni virtual machine, o meglio, ad ogni invocazione di \lstinline|foo()|. Questo implica che ogni qual volta che una transazione utilizzerà il metodo \lstinline|foo()| verrà ritornata una stringa diversa. Se questo fosse possibile su blockchain, ogni miner che procede con l'esecuzione tale metodo ne ricava un risultato diverso che può potenzialmente influire sullo stato globale salvato nello storage.
+	
+	\section{Analisi del package java.util}
+		Anche in questo caso siamo di fronte ad uno dei package più importanti delle API Java che contiene: il framework delle collezioni, il modello degli eventi, le strutture di data e ora, oltre alle classi con varie utilità quali string tokenizer, il generatore di numeri casuali, ecc\dots
+		
+		\subsection{java.util.ArrayList<E>}
+		E' l'implementazione di un'array ridimensionabile dell'interfaccia List. Implementa tutte le operazioni sulle liste ed include tutti gli elementi, incluso \lstinline|null|.
+		
+			\subsubsection{Metodo add(E e)}
+				Questo metodo aggiunge l'elemento E alla fine della lista. Possiamo implementare un metodo di contratto che esegue tale operazione su di una ArrayList \lstinline|listOfNames| che fa parte dello stato.
+				%
+				\begin{lstlisting}
+	List<String> listOfNames = new ArrayList<>();
+	...
+	public void addName(String name) {
+		listOfNames.add(name);
+	}
+	
+	public void clearNames() {
+		listOfNames.clear();
+	}
+				\end{lstlisting}
+				%
+				Supponiamo che due transazioni, $A$ e $B$ richiamino la funzione \lstinline|addName(String name)| nello stesso istante di tempo $t$. Molto probabilmente tali transazioni raggiungeranno i vari miner in tempi diversi, $t_A, t_B$ ed inoltre non è garantito che l'ordine di arrivo sia lo stesso per tutti i miner. Alcun miner potranno infatti ricevere prima la transazione di $A$ e successivamente quella di $B$ altri invece l'opposto. Le due transazioni possono aggiungere una valore di stringa \lstinline|name| diverso, perciò se $A$ richiede di eseguire \lstinline|addName("Alice")| e $B$ \lstinline|addName("Bob")| i due possibili stati finali saranno:
+				%
+				\begin{lstlisting}[numbers=none,frame=none]
+	listOfNames = [..., Alice, Bob]  // transazione A eseguita per prima
+	listOfNames = [..., Bob, Alice]  // transazione B eseguita per prima
+				\end{lstlisting}
+				%
+				In questo caso i due insiemi di miner non potranno trovare accordo sullo stato globale al termine dell'esecuzione delle transazioni dato che ci sarebbero due versioni plausibili dello stato globale.
+				Questo problema è riscontrato con tutte le operazioni di modifica degli elementi dell'ArrayList. Supponendo che un contratto implementi, oltre al sopraccitato metodo, anche un metodo \lstinline|clearNames()|, che procede con l'invocare \lstinline|listOfNames.clear()|, è possibile che due transazioni $A$ e $B$ chiamino rispettivamente \lstinline|addName("Alice")| e \lstinline|clearNames()|. In base all'ordine con cui tali transazioni vengono processate dai miner, i due sottoinsiemi di questi avranno stati diversi quali:
+				%
+				\begin{lstlisting}[numbers=none,frame=none]
+	listOfNames = []	// transazione A eseguita per prima
+	listOfNames = [Alice]	// transazione B eseguita per prima
+				\end{lstlisting}
+				%
