@@ -49,36 +49,37 @@
 	\section{Analisi del package java.util}
 		Anche in questo caso siamo di fronte ad uno dei package più importanti delle API Java che contiene: il framework delle collezioni, il modello degli eventi, le strutture di data e ora, oltre alle classi con varie utilità quali string tokenizer, il generatore di numeri casuali, ecc\dots
 		
-		\subsection{java.util.ArrayList<E>}
-		E' l'implementazione di un'array ridimensionabile dell'interfaccia List. Implementa tutte le operazioni sulle liste ed include tutti gli elementi, incluso \lstinline|null|.
+		\subsection{java.util.HashSet<E>}
+			Questa classe implementa l'interfaccia \lstinline|Set| e supporta una tabella hash. Non fornisce alcuna garanzia sull'ordine di iterazione del set; in particolare, non garantisce che tale ordine rimanga costante nel tempo. Questa classe offre prestazioni a tempo costante per le operazioni di base quali \lstinline|add, remove, contains, size|, sul presupposto che la funzione hash disperda gli elementi in modo corretto tra bucket. L'iterazione su questo set richiede un tempo proporzionale alla somma delle dimensioni dell'istanza di \lstinline|HashSet| (numero degli elementi), sommata alla capacità di supporto dell'istanza \lstinline|HashMap| (numero di bucket). Pertanto sarà importante non impostare una capacità iniziale troppo alta se si dà molta importanza alle prestazioni. Da notare che questa implementazione non è sincronizzata. Se più thread accedono contemporaneamente ad un hash, e almeno uno di questi thread modifica il set, si deve procedere con una sincronizzazione esterna. Il set dovrebbe essere incapsulato all'interno di un metodo \lstinline|Collections.synchronizedSet| ed è consigliabile farlo già alla creazione dell'\lstinline|HashSet| in oggetto.
 		
-			\subsubsection{Metodo add(E e)}
-				Questo metodo aggiunge l'elemento E alla fine della lista. Possiamo implementare un metodo di contratto che esegue tale operazione su di una ArrayList \lstinline|listOfNames| che fa parte dello stato.
-				%
-				\begin{lstlisting}
-	List<String> listOfNames = new ArrayList<>();
+			Gli iteratori restituiti dal metodo \lstinline|iterator| di questa classe sono fail-fast: se il set viene modificato in qualsiasi momento dopo la creazione dell'iteratore, quest,'ultimo genera l'eccezione \lstinline|ConcurrentModificationException|. Quindi di fronte a modifiche simultanee, l'iteratore fallisce rapidamente ed in modo pulito, piuttosto che rischiare di comportarsi in modo arbitrario e non deterministico in qualche tempo indeterminato nel futuro.
+		
+		
+				\subsubsection{Metodo iterator()}
+					Restituisce un iteratore sugli elementi di questo set. Gli elementi vengono restituiti in nessun ordine particolare. Come detto in precedenza la classe \lstinline|HashSet| non garantisce che l'ordine con cui vengono ritornati gli elementi rimanga costante.
+					%
+					\begin{lstlisting}
+	private HashSet h = new HashSet(); 
 	...
-	public void addName(String name) {
-		listOfNames.add(name);
+	public Iterator getIterator() { 
+		return h.iterator();
 	}
-	
-	public void clearNames() {
-		listOfNames.clear();
+					\end{lstlisting}
+					%
+					Supponiamo quindi di scrivere uno smart contract con all'interno il metodo qui sopra, che ci da la possibilità di ritornare un iteratore dell'\lstinline|HashSet h|. Se l'ordine di iterazione non è garantito essere costante nel tempo, ma bensì possiamo trovarci difronte a due iteratori, ritornati dalla funzione di contratto \lstinline|getIterator()|, che iterano con un diverso ordine sugli elementi di \lstinline|h| può portare al non determinismo su blockchain. Una cosa è certa, l'iteratore ritornato può comunque spaziare su tutti gi elementi di \lstinline|h| anche se in ordine diverso, ma partendo da due iteratori che propongono due ordinamenti diversi dello stesso hashset è possibile eseguire delle operazioni che ci portano a dei risultati diversi. Se tale risultato va ad influire sullo stato globale possiamo dedurre che non possiamo permettere l'utilizzo incontrollato di tale Classe.
+					
+		\subsection{java.util.HashMap<K,V>}
+			L'implementazione è basata su Hash Table dell'interfaccia \lstinline|Map|. Questa implementazione fornisce tutte le operazioni opzionali delle map, oltre a permettere valori \lstinline|null| e chiavi \lstinline|null|. Questa classa non fornisce garanzie sull'ordine della mappa; in particolare, non garantisce che tale ordine rimanga costante nel tempo. Questa implementazione fornisce prestazioni costanti per operazioni di base (\lstinline|get| e \lstinline|put|), assumento che la funzione hash disperda gli elementi in modo corretto tra i vari bucket.
+			
+			\subsubsection{Metodo values()}
+				Ritorna una \lstinline|Collection| view di tutti i valori contenuti nella map. Le modifiche della mappa si riflettono sulla  \lstinline|Collection| e viceversa.
+			%
+			\begin{lstlisting}
+	private static Map<String, String> h = new HashMap<>();
+	...
+	public Iterator getIterator() { 
+		return h.values().iterator();
 	}
-				\end{lstlisting}
-				%
-				Supponiamo che due transazioni, $A$ e $B$ richiamino la funzione \lstinline|addName(String name)| nello stesso istante di tempo $t$. Molto probabilmente tali transazioni raggiungeranno i vari miner in tempi diversi, $t_A, t_B$ ed inoltre non è garantito che l'ordine di arrivo sia lo stesso per tutti i miner. Alcun miner potranno infatti ricevere prima la transazione di $A$ e successivamente quella di $B$ altri invece l'opposto. Le due transazioni possono aggiungere una valore di stringa \lstinline|name| diverso, perciò se $A$ richiede di eseguire \lstinline|addName("Alice")| e $B$ \lstinline|addName("Bob")| i due possibili stati finali saranno:
-				%
-				\begin{lstlisting}[numbers=none,frame=none]
-	listOfNames = [..., Alice, Bob]  // transazione A eseguita per prima
-	listOfNames = [..., Bob, Alice]  // transazione B eseguita per prima
-				\end{lstlisting}
-				%
-				In questo caso i due insiemi di miner non potranno trovare accordo sullo stato globale al termine dell'esecuzione delle transazioni dato che ci sarebbero due versioni plausibili dello stato globale.
-				Questo problema è riscontrato con tutte le operazioni di modifica degli elementi dell'ArrayList. Supponendo che un contratto implementi, oltre al sopraccitato metodo, anche un metodo \lstinline|clearNames()|, che procede con l'invocare \lstinline|listOfNames.clear()|, è possibile che due transazioni $A$ e $B$ chiamino rispettivamente \lstinline|addName("Alice")| e \lstinline|clearNames()|. In base all'ordine con cui tali transazioni vengono processate dai miner, i due sottoinsiemi di questi avranno stati diversi quali:
-				%
-				\begin{lstlisting}[numbers=none,frame=none]
-	listOfNames = []	// transazione A eseguita per prima
-	listOfNames = [Alice]	// transazione B eseguita per prima
-				\end{lstlisting}
-				%
+			\end{lstlisting}
+			%
+			Se un contratto implementa il metodo \lstinline|getIterator()| questo ritornerà un iteratore della Collezione che rappresenta i dati contenuti nella nostra hashMap \lstinline|h|. Purtroppo, come riportato nei java docs, la classe \lstinline|HashMap|, così come \lstinline|HashSet|, non fornisce garanzie sull'ordine delle map, soprattutto non è garantito che l'ordine rimanga costante nel tempo. Per questo motivo può portare al non determinismo su blockchain.
