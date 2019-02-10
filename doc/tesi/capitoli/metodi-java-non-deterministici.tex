@@ -11,68 +11,63 @@
 
 	Siamo quindi alla ricerca dei metodi Java che, in determinate situazioni, portano ad una forma di non-determinismo. Tali funzioni dovranno essere escluse dai metodi white-listed di Takamaka così da vietarne l'utilizzo durante la scrittura dei contratti. L'analisi comincia con uno dei package più utilizzati: \lstinline|java.lang|.
 
-	\section{Analisi del package java.lang}
-		Siamo difronte ad uno dei package più importanti delle API Java indispensabili per lo sviluppo anche delle più semplici Classi Java. 
+	\section{java.lang.Object}
+		\lstinline|java.lang.Object| è la super classe di tutte la classi Java perciò queste erediteranno tutti i metodi di Object. I metodi che implementa sono numerosi e in certi casi, alcuni di questi, possono causare non determinismo.
 
-		\subsection{java.lang.Object}
-			\lstinline|java.lang.Object| è la super classe di tutte la classi Java perciò queste erediteranno tutti i metodi di Object. I metodi che implementa sono numerosi e in certi casi, alcuni di questi, possono causare non determinismo.
-
-			\subsubsection{Metodo hashCode()}
-			\label{object-hashcode}
-				Questo metodo restituisce l'hash code dell'oggetto su cui viene applicato. Ogni volta che viene invocato su di un oggetto, durante l'esecuzione di un'applicazione Java, deve restituire sempre lo stesso valore intero, a condizione che non vengano modificati delle variabili all'interno dell'oggetto stesso. Questo numero intero non deve rimanere coerente da un'esecuzione all'altra. Due oggetti risultano uguali in base al metodo \lstinline|equals(Object)|, quindi chiamare il metodo \lstinline|hashCode()| su ciascuno dei due oggetti deve ritornare lo stesso valore. Quindi, in definitiva, il metodo \lstinline|hashCode()| restituisce interi distinti per oggetti distinti. Ma vediamo come l'utilizzo di questo metodo su blockchain può riportare problemi:
+		\subsection{Metodo hashCode()}
+		\label{object-hashcode}
+			Questo metodo restituisce l'hash code dell'oggetto su cui viene applicato. Ogni volta che viene invocato su di un oggetto, durante l'esecuzione di un'applicazione Java, deve restituire sempre lo stesso valore intero, a condizione che non vengano modificati delle variabili all'interno dell'oggetto stesso. Questo numero intero non deve rimanere coerente da un'esecuzione all'altra. Due oggetti risultano uguali in base al metodo \lstinline|equals(Object)|, quindi chiamare il metodo \lstinline|hashCode()| su ciascuno dei due oggetti deve ritornare lo stesso valore. Quindi, in definitiva, il metodo \lstinline|hashCode()| restituisce interi distinti per oggetti distinti. Ma vediamo come l'utilizzo di questo metodo su blockchain può riportare problemi:
 				%
-				\begin{lstlisting}
+			\begin{lstlisting}
 	public int foo() {
 		return new Object().hashCode();
 	}
-				\end{lstlisting}
-				%
-				Come abbiamo detto qui sopra, il metodo \lstinline|hashCode()|, ritornerà valori uguali a patto che l'oggetto in questione non subisca cambiamenti. Tale valore non deve rimanere costante per ogni esecuzione e tanto meno in virtual machine diverse. L'utilizzo del metodo visto qui sopra sul sistema blockchain, può portare ad ottenere risultati diversi che possono influire sullo stato globale.
+			\end{lstlisting}
+			%
+			Come abbiamo detto qui sopra, il metodo \lstinline|hashCode()|, ritornerà valori uguali a patto che l'oggetto in questione non subisca cambiamenti. Tale valore non deve rimanere costante per ogni esecuzione e tanto meno in virtual machine diverse. L'utilizzo del metodo visto qui sopra sul sistema blockchain, può portare ad ottenere risultati diversi che possono influire sullo stato globale.
 			
-			\subsubsection{Metodo toString()}
-				Questo metodo ritorna una stringa che rappresenta testualmente l'oggetto, più nel dettaglio viene ritornata una stringa composta dal nome della classe di cui l'oggetto è istanza seguita dal carattere @ e la rappresentazione esadecimale dell'hash code di tale oggetto. In altre parole, viene ritornato:
-				%
-				\begin{lstlisting}[numbers=none,frame=none]
+		\subsection{Metodo toString()}
+			Questo metodo ritorna una stringa che rappresenta testualmente l'oggetto, più nel dettaglio viene ritornata una stringa composta dal nome della classe di cui l'oggetto è istanza seguita dal carattere @ e la rappresentazione esadecimale dell'hash code di tale oggetto. In altre parole, viene ritornato:
+			%
+			\begin{lstlisting}[numbers=none,frame=none]
 	getClass().getName() + '@' + Integer.toHexString(hashCode())
 				\end{lstlisting}
-				%
-				Il problema può sorgere quando si tenta di implementare un metodo del tipo:
-				%
-				\begin{lstlisting}
+			%
+			Il problema può sorgere quando si tenta di implementare un metodo del tipo:
+			%
+			\begin{lstlisting}
 	public String foo() {
 		return new Object().toString();
 	}
-				\end{lstlisting}
-				%
-				Come visto nella sezione \ref{object-hashcode}, il valore della rappresentazione intera dell'hash ritornato dalla funzione \lstinline|hashCode()|, sarà diverso per ogni virtual machine, o meglio, ad ogni invocazione di \lstinline|foo()|. Questo implica che ogni qual volta che una transazione utilizzerà il metodo \lstinline|foo()| verrà ritornata una stringa diversa. Se questo fosse possibile su blockchain, ogni miner che procede con l'esecuzione tale metodo ne ricava un risultato diverso che può potenzialmente influire sullo stato globale salvato nello storage.
+			\end{lstlisting}
+			%
+			Come visto nella sezione \ref{object-hashcode}, il valore della rappresentazione intera dell'hash ritornato dalla funzione \lstinline|hashCode()|, sarà diverso per ogni virtual machine, o meglio, ad ogni invocazione di \lstinline|foo()|. Questo implica che ogni qual volta che una transazione utilizzerà il metodo \lstinline|foo()| verrà ritornata una stringa diversa. Se questo fosse possibile su blockchain, ogni miner che procede con l'esecuzione tale metodo ne ricava un risultato diverso che può potenzialmente influire sullo stato globale salvato nello storage.
 	
-	\section{Analisi del package java.util}
-		Anche in questo caso siamo di fronte ad uno dei package più importanti delle API Java che contiene: il framework delle collezioni, il modello degli eventi, le strutture di data e ora, oltre alle classi con varie utilità quali string tokenizer, il generatore di numeri casuali, ecc\dots
 		
-		\subsection{java.util.HashSet<E>}
-			Questa classe implementa l'interfaccia \lstinline|Set| e supporta una tabella hash. Non fornisce alcuna garanzia sull'ordine di iterazione del set; in particolare, non garantisce che tale ordine rimanga costante nel tempo. Questa classe offre prestazioni a tempo costante per le operazioni di base quali \lstinline|add, remove, contains, size|, sul presupposto che la funzione hash disperda gli elementi in modo corretto tra bucket. L'iterazione su questo set richiede un tempo proporzionale alla somma delle dimensioni dell'istanza di \lstinline|HashSet| (numero degli elementi), sommata alla capacità di supporto dell'istanza \lstinline|HashMap| (numero di bucket). Pertanto sarà importante non impostare una capacità iniziale troppo alta se si dà molta importanza alle prestazioni. Da notare che questa implementazione non è sincronizzata. Se più thread accedono contemporaneamente ad un hash, e almeno uno di questi thread modifica il set, si deve procedere con una sincronizzazione esterna. Il set dovrebbe essere incapsulato all'interno di un metodo \lstinline|Collections.synchronizedSet| ed è consigliabile farlo già alla creazione dell'\lstinline|HashSet| in oggetto.
+	\section{java.util.HashSet<E>}
+		Questa classe implementa l'interfaccia \lstinline|Set| e supporta una tabella hash. Non fornisce alcuna garanzia sull'ordine di iterazione del set; in particolare, non garantisce che tale ordine rimanga costante nel tempo. Questa classe offre prestazioni a tempo costante per le operazioni di base quali \lstinline|add, remove, contains, size|, sul presupposto che la funzione hash disperda gli elementi in modo corretto tra bucket. L'iterazione su questo set richiede un tempo proporzionale alla somma delle dimensioni dell'istanza di \lstinline|HashSet| (numero degli elementi), sommata alla capacità di supporto dell'istanza \lstinline|HashMap| (numero di bucket). Pertanto sarà importante non impostare una capacità iniziale troppo alta se si dà molta importanza alle prestazioni. Da notare che questa implementazione non è sincronizzata. Se più thread accedono contemporaneamente ad un hash, e almeno uno di questi thread modifica il set, si deve procedere con una sincronizzazione esterna. Il set dovrebbe essere incapsulato all'interno di un metodo \lstinline|Collections.synchronizedSet| ed è consigliabile farlo già alla creazione dell'\lstinline|HashSet| in oggetto.
 		
-			Gli iteratori restituiti dal metodo \lstinline|iterator| di questa classe sono fail-fast: se il set viene modificato in qualsiasi momento dopo la creazione dell'iteratore, quest,'ultimo genera l'eccezione \lstinline|ConcurrentModificationException|. Quindi di fronte a modifiche simultanee, l'iteratore fallisce rapidamente ed in modo pulito, piuttosto che rischiare di comportarsi in modo arbitrario e non deterministico in qualche tempo indeterminato nel futuro.
+		Gli iteratori restituiti dal metodo \lstinline|iterator| di questa classe sono fail-fast: se il set viene modificato in qualsiasi momento dopo la creazione dell'iteratore, quest,'ultimo genera l'eccezione \lstinline|ConcurrentModificationException|. Quindi di fronte a modifiche simultanee, l'iteratore fallisce rapidamente ed in modo pulito, piuttosto che rischiare di comportarsi in modo arbitrario e non deterministico in qualche tempo indeterminato nel futuro.
 		
 		
-				\subsubsection{Metodo iterator()}
-					Restituisce un iteratore sugli elementi di questo set. Gli elementi vengono restituiti in nessun ordine particolare. Come detto in precedenza la classe \lstinline|HashSet| non garantisce che l'ordine con cui vengono ritornati gli elementi rimanga costante.
-					%
-					\begin{lstlisting}
+		\subsection{Metodo iterator()}
+			Restituisce un iteratore sugli elementi di questo set. Gli elementi vengono restituiti in nessun ordine particolare. Come detto in precedenza la classe \lstinline|HashSet| non garantisce che l'ordine con cui vengono ritornati gli elementi rimanga costante.
+			%
+			\begin{lstlisting}
 	private HashSet h = new HashSet(); 
 	...
 	public Iterator getIterator() { 
 		return h.iterator();
 	}
-					\end{lstlisting}
-					%
-					Supponiamo quindi di scrivere uno smart contract con all'interno il metodo qui sopra, che ci da la possibilità di ritornare un iteratore dell'\lstinline|HashSet h|. Se l'ordine di iterazione non è garantito essere costante nel tempo, ma bensì possiamo trovarci difronte a due iteratori, ritornati dalla funzione di contratto \lstinline|getIterator()|, che iterano con un diverso ordine sugli elementi di \lstinline|h| può portare al non determinismo su blockchain. Una cosa è certa, l'iteratore ritornato può comunque spaziare su tutti gi elementi di \lstinline|h| anche se in ordine diverso, ma partendo da due iteratori che propongono due ordinamenti diversi dello stesso hashset è possibile eseguire delle operazioni che ci portano a dei risultati diversi. Se tale risultato va ad influire sullo stato globale possiamo dedurre che non possiamo permettere l'utilizzo incontrollato di tale Classe.
+			\end{lstlisting}
+			%
+			Supponiamo quindi di scrivere uno smart contract con all'interno il metodo qui sopra, che ci da la possibilità di ritornare un iteratore dell'\lstinline|HashSet h|. Se l'ordine di iterazione non è garantito essere costante nel tempo, ma bensì possiamo trovarci difronte a due iteratori, ritornati dalla funzione di contratto \lstinline|getIterator()|, che iterano con un diverso ordine sugli elementi di \lstinline|h| può portare al non determinismo su blockchain. Una cosa è certa, l'iteratore ritornato può comunque spaziare su tutti gi elementi di \lstinline|h| anche se in ordine diverso, ma partendo da due iteratori che propongono due ordinamenti diversi dello stesso hashset è possibile eseguire delle operazioni che ci portano a dei risultati diversi. Se tale risultato va ad influire sullo stato globale possiamo dedurre che non possiamo permettere l'utilizzo incontrollato di tale Classe.
 					
-		\subsection{java.util.HashMap<K,V>}
-			L'implementazione è basata su Hash Table dell'interfaccia \lstinline|Map|. Questa implementazione fornisce tutte le operazioni opzionali delle map, oltre a permettere valori \lstinline|null| e chiavi \lstinline|null|. Questa classa non fornisce garanzie sull'ordine della mappa; in particolare, non garantisce che tale ordine rimanga costante nel tempo. Questa implementazione fornisce prestazioni costanti per operazioni di base (\lstinline|get| e \lstinline|put|), assumento che la funzione hash disperda gli elementi in modo corretto tra i vari bucket.
+	\section{java.util.HashMap<K,V>}
+		L'implementazione è basata su Hash Table dell'interfaccia \lstinline|Map|. Questa implementazione fornisce tutte le operazioni opzionali delle map, oltre a permettere valori \lstinline|null| e chiavi \lstinline|null|. Questa classa non fornisce garanzie sull'ordine della mappa; in particolare, non garantisce che tale ordine rimanga costante nel tempo. Questa implementazione fornisce prestazioni costanti per operazioni di base (\lstinline|get| e \lstinline|put|), assumento che la funzione hash disperda gli elementi in modo corretto tra i vari bucket.
 			
-			\subsubsection{Metodo values()}
-				Ritorna una \lstinline|Collection| view di tutti i valori contenuti nella map. Le modifiche della mappa si riflettono sulla  \lstinline|Collection| e viceversa.
+		\subsection{Metodo values()}
+			Ritorna una \lstinline|Collection| view di tutti i valori contenuti nella map. Le modifiche della mappa si riflettono sulla  \lstinline|Collection| e viceversa.
 			%
 			\begin{lstlisting}
 	private static Map<String, String> h = new HashMap<>();
@@ -83,3 +78,26 @@
 			\end{lstlisting}
 			%
 			Se un contratto implementa il metodo \lstinline|getIterator()| questo ritornerà un iteratore della Collezione che rappresenta i dati contenuti nella nostra hashMap \lstinline|h|. Purtroppo, come riportato nei java docs, la classe \lstinline|HashMap|, così come \lstinline|HashSet|, non fornisce garanzie sull'ordine delle map, soprattutto non è garantito che l'ordine rimanga costante nel tempo. Per questo motivo può portare al non determinismo su blockchain.
+			
+	\section{java.util.stream}
+		Sequenza di elementi che supporta operazioni di aggregazione sequenziali e parallele. Oltre a \lstinline|Stream| che è un flusso di riferimenti ad oggetti, esistono delle specializzazioni primitive per \lstinline|IntStream|, \lstinline|LongStream| e \lstinline|DoubleStream|. Per eseguire un calcolo, le operazioni di flusso sono composte in una \textit{stream pipeline}. Una stream pipeline è costituita da una sorgente (che potrebbe essere un'array, una collection, una funzione di generazione, un canale I/O, ecc.), zero o più \textit{operazioni intermedie} (che trasformano lo stream in un altro stream, come per esempio \lstinline|filter(Predicate)|) e un'operazione \textit{terminale} (che produce un risultato o un side-effect, come per esempio \lstinline|count()| o \lstinline|forEach(Consumer)|). Gli stream sono "pigri", i calcoli sui dati d'origine vengono eseguiti solamente quando viene avviata l'operazione terminale.
+		
+		Collection e stream, pur presentando alcune somiglianze superficiali, hanno obiettivi diversi. Le collection hanno l'obiettivo principale di fornire l'accesso ed una gestione efficiente ai dati che contengono. Al contrario, gli stream non forniscono un mezzo per accedere direttamente o manipolare i loro elementi, sono invece interessati alla descrizione dichiarativa della sorgente e delle operazioni di calcolo che saranno eseguite in forma aggregata sulla sorgente.	Una pipeline di flusso può essere vista come una query sull'origine dello stream.
+		
+		Andiamo ora a vedere più da vicino come viene utilizzato uno stream e che influenza può avere sullo stile di programmazione java. Come visto nell'articolo \cite{java-8-stream}, data la classe \lstinline|Album| cerchiamo di ricavare tutti gli album pubblicati prima dell'anno 2000 e stamparne i relativi autori. Vediamo la versione scritta in Java 7 e la possibile scrittura in Java 8 con l'utilizzo delle stream.
+		%
+		\begin{lstlisting}
+	// Implementazione in Java 7
+	for (Album album : albums)
+		if (album.getYear() < 2000)
+			System.out.println(album.getAuthor());
+	
+	// Implementazione in Java 8
+	albums.stream()
+		.filter(album -> album.getYear() < 2000)
+		.map(Album::getAuthor)
+		.forEach(System.out::println);
+		\end{lstlisting}
+		%
+		Nel primo caso, prendiamo il primo elemento, questo viene processato per poi passare al successivo. Questo tipo di operazione si chiama iterazione esterna. Nel secondo caso ci facciamo restituire un oggetto stream dalla collezione \lstinline|albums|, sulla quale usiamo ul metodo \lstinline|filter| che ci permette di considerare solamente gli album che soddisfano un certo criterio, espersso tramite una lambda espressione. Sugli album che superano questa selezione, tramite \lstinline|map| e con un metodo reference, ci facciamo ritornare solamente l'autore e procediamo con lo stampare ciascuno di questi elementi.
+		
