@@ -80,7 +80,7 @@
 			Se un contratto implementa il metodo \lstinline|getIterator()| questo ritornerà un iteratore della Collezione che rappresenta i dati contenuti nella nostra hashMap \lstinline|h|. Purtroppo, come riportato nei java docs, la classe \lstinline|HashMap|, così come \lstinline|HashSet|, non fornisce garanzie sull'ordine delle map, soprattutto non è garantito che l'ordine rimanga costante nel tempo. Per questo motivo può portare al non determinismo su blockchain.
 			
 	\section{java.util.stream}
-		Sequenza di elementi che supporta operazioni di aggregazione sequenziali e parallele. Oltre a \lstinline|Stream| che è un flusso di riferimenti ad oggetti, esistono delle specializzazioni primitive per \lstinline|IntStream|, \lstinline|LongStream| e \lstinline|DoubleStream|. Per eseguire un calcolo, le operazioni di flusso sono composte in una \textit{stream pipeline}. Una stream pipeline è costituita da una sorgente (che potrebbe essere un'array, una collection, una funzione di generazione, un canale I/O, ecc.), zero o più \textit{operazioni intermedie} (che trasformano lo stream in un altro stream, come per esempio \lstinline|filter(Predicate)|) e un'operazione \textit{terminale} (che produce un risultato o un side-effect, come per esempio \lstinline|count()| o \lstinline|forEach(Consumer)|). Gli stream sono "pigri", i calcoli sui dati d'origine vengono eseguiti solamente quando viene avviata l'operazione terminale.
+		Sequenza di elementi che supporta operazioni di aggregazione sequenziali e parallele. Oltre a \lstinline|Stream| che è un flusso di riferimenti ad oggetti, esistono delle specializzazioni primitive per \lstinline|IntStream|, \lstinline|LongStream| e \lstinline|DoubleStream|. Per eseguire un calcolo, le operazioni di flusso sono composte in una \textit{stream pipeline}. Una stream pipeline è costituita da una \textit{sorgente} (che potrebbe essere un'array, una collection, una funzione di generazione, un canale I/O, ecc.), zero o più \textit{operazioni intermedie} (che trasformano lo stream in un altro stream, come per esempio \lstinline|filter(Predicate)|) e un'operazione \textit{terminale} (che produce un risultato o un side-effect, come per esempio \lstinline|count()| o \lstinline|forEach(Consumer)|). Gli stream sono "pigri", i calcoli sui dati d'origine vengono eseguiti solamente quando viene avviata l'operazione terminale.
 		
 		Collection e stream, pur presentando alcune somiglianze superficiali, hanno obiettivi diversi. Le collection hanno l'obiettivo principale di fornire l'accesso ed una gestione efficiente ai dati che contengono. Al contrario, gli stream non forniscono un mezzo per accedere direttamente o manipolare i loro elementi, sono invece interessati alla descrizione dichiarativa della sorgente e delle operazioni di calcolo che saranno eseguite in forma aggregata sulla sorgente.	Una pipeline di flusso può essere vista come una query sull'origine dello stream.
 		
@@ -99,5 +99,79 @@
 		.forEach(System.out::println);
 		\end{lstlisting}
 		%
-		Nel primo caso, prendiamo il primo elemento, questo viene processato per poi passare al successivo. Questo tipo di operazione si chiama iterazione esterna. Nel secondo caso ci facciamo restituire un oggetto stream dalla collezione \lstinline|albums|, sulla quale usiamo ul metodo \lstinline|filter| che ci permette di considerare solamente gli album che soddisfano un certo criterio, espersso tramite una lambda espressione. Sugli album che superano questa selezione, tramite \lstinline|map| e con un metodo reference, ci facciamo ritornare solamente l'autore e procediamo con lo stampare ciascuno di questi elementi.
+		Nel primo caso, prendiamo il primo elemento, questo viene processato per poi passare al successivo. Questo tipo di operazione si chiama iterazione esterna. Nel secondo caso ci facciamo restituire un oggetto stream dalla collezione \lstinline|albums|, sulla quale usiamo il metodo \lstinline|filter| che ci permette di considerare solamente gli album che soddisfano un certo criterio, espresso tramite una lambda espressione. Sugli album che superano questa selezione, tramite \lstinline|map| e con un metodo reference, ci facciamo ritornare solamente l'autore e procediamo con lo stampare ciascuno di questi elementi. Riguardando le due implementazioni qui sopra appare evidente che lavoriamo dicendo allo stream cosa fare, non come farlo, di conseguenza ciò che abbiamo scritto è più simile alla descrizione del problema formulato in partenza, piuttosto che ad una metodologia per risolverlo. 
 		
+		Quella appena descritta è la modalità sequenziale ma da la possibilità di eseguire le stesse operazioni in parallelo. Dal punto di vista sintattico basta sostituire \lstinline|stream()| con il costrutto \lstinline|parallelStream()| in questo modo:
+		%
+		\begin{lstlisting}
+	albums.parallelStream()
+		.filter(album -> album.getYear() < 2000)
+		.map(Album::getAuthor)
+		.forEach(System.out::println);
+		\end{lstlisting}
+		%
+		Questa nuova soluzione risponde comunque al problema formulato ma il risultato da lei ritornato non è deterministico in quanto l'ordinamento ritornato da questa procedura è potenzialmente diverso ad ogni esecuzione.
+		
+		\subsection{Metodo findAny()}
+			Restituisce un oggetto \lstinline|Optional| che descrive qualche elemento dello stream, oppure un empty \lstinline|Optional| in caso di stream vuoto. E' un'operazione terminale ed il comportamento di questa operazione è esplicitamente non deterministico, infatti è libera di selezionare un qualsiasi elemento nello stream. Questo per consentire prestazioni massime nelle operazioni parallele, con la conseguenza che più invocazioni successive della stessa procedura sulla medesima fonte potrebbero non restituire lo stesso risultato. Il metodo alternativo stabile è \lstinline|findFirst()|.
+			%
+			\begin{lstlisting}[breaklines=true]
+	private String foo() {
+		List<String> lst = Arrays.asList("Jhonny", "David", "Jack", "Duke", "Jill", "Dany", "Julia", "Divya");
+		
+		return lst.parallelStream()
+			.filter(s -> s.startsWith("J"))
+			.findAny().get();
+	}
+			\end{lstlisting}
+			%
+			L'esecuzione consecutiva della funzione sopraccitata \lstinline|foo()| restituisce risultati diversi. Un banale test come questo può essere eseguito richiamando in modo sequenziale $n$ volte, nel nostro caso 10000, tale funzione. Riportiamo qui sotto i risultati rappresentati con il formato \textit{nome} : \textit{n-returns}.
+			%
+			\begin{lstlisting}[numbers=none,frame=none]
+	Jill: 7060, Jack: 2319, Julia: 91, Jhonny: 179, Jenish: 351
+			\end{lstlisting}
+			%
+			Sostituendo \lstinline|findAny()| con il metodo \lstinline|findFirst()|, come riportato sulla descrizione JavaDoc, ci viene ritornato sempre il medesimo risultato, nel nostro caso \lstinline|Jhonny: 10000|.
+			Abbiamo quindi la conferma che \lstinline|findAny()|, utilizzato soprattutto con \lstinline|parallelStream|, risulta un metodo non deterministico, quindi non utilizzabile all'interno di smart contract blockchain.
+			
+		\subsection{Altri esempi di non determinismo}
+			Nel Java Doc che descrive il package \lstinline|java.util.stream| viene scritto che ad eccezione delle operazioni identificate come esplicitamente non deterministiche, come \lstinline|findAny()|, se un flusso viene eseguito in sequenza o in parallelo non dovrebbe modificare il risultato del calcolo. Con un po' di fantasia però si può pensare ad una procedura non deterministica che stampi risultati diversi se eseguita in modo seriale piuttosto che parallelo.
+			%
+			\begin{lstlisting}[breaklines=true]
+	private List<String> foo() {
+		List<String> lst = Arrays.asList("Jhonny", "David", "Jack", "Duke", "Jill", "Dany", "Julia", "Divya");
+	
+		List<String> results = new ArrayList<>();
+		lst.parallelStream()
+			.filter(e -> e.startsWith("J"))
+			.forEach(e -> results.add(e));
+			
+		return results;
+	}
+			\end{lstlisting}
+			%
+			La versione seriale, con l'utilizzo di \lstinline|stream()|, e quella parallela, qui sopra implementata, che utilizza \lstinline|parallelStream()| producono due risultati ben diversi. Quando utilizziamo uno stream parallelo, dobbiamo tenere sempre presente che introduciamo il non determinismo, come nella funzione \lstinline|foo()|, se cerchiamo in parallelo un elemento che abbia certe caratteristiche all'interno dello stream, e ce n'è più di uno, potremmo ottenere risposte diverse in esecuzioni diverse. Le righe precedenti, infatti, in maniera non prevedibile producono un'eccezione, dato che ArrayList non è thread-safe. L'arraylist \lstinline|results| potrà potenzialmente contenere i seguenti risultati:
+			%
+			\begin{lstlisting}[numbers=none,frame=none]
+	[Jill, Jack, Julia, Jenish, Jhonny]
+	[Jill, Jack, Julia, Jhonny, Jenish]
+	[Jill, Jenish, Jack, Julia]
+	...
+			\end{lstlisting}
+			%
+			La soluzione a questo problema è la seguente:
+				%
+			\begin{lstlisting}[breaklines=true]
+	private List<String> foo() {
+		List<String> lst = Arrays.asList("Jhonny", "David", "Jack", "Duke", "Jill", "Dany", "Julia", "Divya");
+	
+		List<String> results = lst2.parallelStream()
+			.filter(e -> e.startsWith("J"))
+			.collect(Collectors.toList());
+	
+	return results;
+	}
+			\end{lstlisting}
+			%
+			
+			In un qualsiasi stream, parallelo o sequenziale, le operazioni contenute nella pipeline non devono modificare la sorgente dati, ad eccezione di alcune operazioni intermedie, e le lambda che vengono passate non devono dipendere dallo stato di qualche altro oggetto anche se esterno alla pipeline, devono quindi essere stateless. Se questi accorgimenti non vengono rispettati possiamo incorrere in risultati non corretti o ad eccezioni a runtime.
