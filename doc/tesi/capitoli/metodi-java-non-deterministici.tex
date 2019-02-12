@@ -24,7 +24,15 @@
 	}
 			\end{lstlisting}
 			%
-			Come abbiamo detto qui sopra, il metodo \lstinline|hashCode()|, ritornerà valori uguali a patto che l'oggetto in questione non subisca cambiamenti. Tale valore non deve rimanere costante per ogni esecuzione e tanto meno in virtual machine diverse. L'utilizzo del metodo visto qui sopra sul sistema blockchain, può portare ad ottenere risultati diversi che possono influire sullo stato globale.
+			Come abbiamo detto qui sopra, il metodo \lstinline|hashCode()|, ritornerà valori uguali a patto che l'oggetto in questione non subisca cambiamenti. Tale valore non deve rimanere costante per ogni esecuzione e tanto meno in virtual machine diverse. Possono essere ritornati dei valori del tipo:
+			%
+			\begin{lstlisting}[numbers=none,frame=none]
+	1627800613
+	2065530879
+	697960108
+			\end{lstlisting}
+			%
+			L'utilizzo del metodo visto qui sopra sul sistema blockchain, può portare ad ottenere risultati diversi che possono influire sullo stato globale.
 			
 		\subsection{Metodo toString()}
 			Questo metodo ritorna una stringa che rappresenta testualmente l'oggetto, più nel dettaglio viene ritornata una stringa composta dal nome della classe di cui l'oggetto è istanza seguita dal carattere @ e la rappresentazione esadecimale dell'hash code di tale oggetto. In altre parole, viene ritornato:
@@ -41,10 +49,18 @@
 	}
 			\end{lstlisting}
 			%
-			Come visto nella sezione \ref{object-hashcode}, il valore della rappresentazione intera dell'hash ritornato dalla funzione \lstinline|hashCode()|, sarà diverso per ogni virtual machine, o meglio, ad ogni invocazione di \lstinline|foo()|. Questo implica che ogni qual volta che una transazione utilizzerà il metodo \lstinline|foo()| verrà ritornata una stringa diversa. Se questo fosse possibile su blockchain, ogni miner che procede con l'esecuzione tale metodo ne ricava un risultato diverso che può potenzialmente influire sullo stato globale salvato nello storage.
+			Come visto nella sezione \ref{object-hashcode}, il valore della rappresentazione intera dell'hash ritornato dalla funzione \lstinline|hashCode()|, sarà diverso per ogni virtual machine, o meglio, ad ogni invocazione di \lstinline|foo()|. Questo implica che ogni qual volta che una transazione utilizzerà il metodo \lstinline|foo()| verrà ritornata una stringa diversa. Possono infatti essere ritornati dei valori del tipo:
+			%
+			\begin{lstlisting}[numbers=none,frame=none]
+	java.lang.Object@77468bd9
+	java.lang.Object@1f89ab83
+	java.lang.Object@e73f9ac
+			\end{lstlisting}
+			%
+			Se questo fosse possibile su blockchain, ogni miner che procede con l'esecuzione tale metodo ne ricava un risultato diverso che può potenzialmente influire sullo stato globale salvato nello storage.
 	
 		
-	\section{java.util.HashSet<E>}
+	\section{java.util.HashSet}
 		Questa classe implementa l'interfaccia \lstinline|Set| e supporta una tabella hash. Non fornisce alcuna garanzia sull'ordine di iterazione del set; in particolare, non garantisce che tale ordine rimanga costante nel tempo. Questa classe offre prestazioni a tempo costante per le operazioni di base quali \lstinline|add, remove, contains, size|, sul presupposto che la funzione hash disperda gli elementi in modo corretto tra bucket. L'iterazione su questo set richiede un tempo proporzionale alla somma delle dimensioni dell'istanza di \lstinline|HashSet| (numero degli elementi), sommata alla capacità di supporto dell'istanza \lstinline|HashMap| (numero di bucket). Pertanto sarà importante non impostare una capacità iniziale troppo alta se si dà molta importanza alle prestazioni. Da notare che questa implementazione non è sincronizzata. Se più thread accedono contemporaneamente ad un hash, e almeno uno di questi thread modifica il set, si deve procedere con una sincronizzazione esterna. Il set dovrebbe essere incapsulato all'interno di un metodo \lstinline|Collections.synchronizedSet| ed è consigliabile farlo già alla creazione dell'\lstinline|HashSet| in oggetto.
 		
 		Gli iteratori restituiti dal metodo \lstinline|iterator| di questa classe sono fail-fast: se il set viene modificato in qualsiasi momento dopo la creazione dell'iteratore, quest,'ultimo genera l'eccezione \lstinline|ConcurrentModificationException|. Quindi di fronte a modifiche simultanee, l'iteratore fallisce rapidamente ed in modo pulito, piuttosto che rischiare di comportarsi in modo arbitrario e non deterministico in qualche tempo indeterminato nel futuro.
@@ -63,7 +79,7 @@
 			%
 			Supponiamo quindi di scrivere uno smart contract con all'interno il metodo qui sopra, che ci da la possibilità di ritornare un iteratore dell'\lstinline|HashSet h|. Se l'ordine di iterazione non è garantito essere costante nel tempo, ma bensì possiamo trovarci difronte a due iteratori, ritornati dalla funzione di contratto \lstinline|getIterator()|, che iterano con un diverso ordine sugli elementi di \lstinline|h| può portare al non determinismo su blockchain. Una cosa è certa, l'iteratore ritornato può comunque spaziare su tutti gi elementi di \lstinline|h| anche se in ordine diverso, ma partendo da due iteratori che propongono due ordinamenti diversi dello stesso hashset è possibile eseguire delle operazioni che ci portano a dei risultati diversi. Se tale risultato va ad influire sullo stato globale possiamo dedurre che non possiamo permettere l'utilizzo incontrollato di tale Classe.
 					
-	\section{java.util.HashMap<K,V>}
+	\section{java.util.HashMap}
 		L'implementazione è basata su Hash Table dell'interfaccia \lstinline|Map|. Questa implementazione fornisce tutte le operazioni opzionali delle map, oltre a permettere valori \lstinline|null| e chiavi \lstinline|null|. Questa classa non fornisce garanzie sull'ordine della mappa; in particolare, non garantisce che tale ordine rimanga costante nel tempo. Questa implementazione fornisce prestazioni costanti per operazioni di base (\lstinline|get| e \lstinline|put|), assumento che la funzione hash disperda gli elementi in modo corretto tra i vari bucket.
 			
 		\subsection{Metodo values()}
@@ -159,7 +175,31 @@
 	...
 			\end{lstlisting}
 			%
-			La soluzione a questo problema è la seguente:
+			Una prima soluzione a questo problema può essere l'introduzione di una lista sincronizzata (thread-safe) che si prenda cura di garantire l'accesso in modo seriale alla struttura specificata. In questo modo se più thread tenteranno di accedere nello stesso momento alla lista, per aggiungere un nuovo elemento, solo una delle due thread riuscirà a salvare subito il nuovo dato, mentre l'altra resterà in attesa che la risorsa venga rilasciata. Nelle seguenti righe vediamo tale implementazione:
+			%
+			\begin{lstlisting}[breaklines=true]
+	private List<String> foo() {
+		List<String> lst = Arrays.asList("Jhonny", "David", "Jack", "Duke", "Jill", "Dany", "Julia", "Divya");
+		
+		List<String> results = Collections.synchronizedList(new ArrayList<>());
+		lst.parallelStream()
+			.filter(e -> e.startsWith("J"))
+			.forEach(e -> results.add(e));
+		
+		return results;
+	}
+			\end{lstlisting}
+			%
+			La nuova lista \lstinline|result| ci assicura che tutti gli elementi trovati dalla procedura, in questo caso che tutti i nomi presenti nella lista \lstinline|lst| che iniziano con la lettere $J$, vengano riportati all'interno della lista \lstinline|results|. Questo modo di procedere però non assicura che l'ordinamento di \lstinline|results| resti fisso per tutte esecuzioni. L'accesso in scrittura a tale lista resta comunque legato all'ordine di terminazione delle varie thread che può variare ad ogni esecuzione. Questo ci porta a scartare anche questa soluzione. Vediamo alcuni potenziali output:
+			%
+			\begin{lstlisting}[numbers=none,frame=none]
+	[Jill, Jack, Julia, Jenish, Jhonny]
+	[Jill, Jenish, Julia, Jhonny, Jack]
+	[Jill, Jhonny, Jack, Julia, Jenish]
+	...
+			\end{lstlisting}
+			%
+			Nelle seguenti righe vediamo un'altra variante che rende costante l'ordinamento di \lstinline|results|:
 				%
 			\begin{lstlisting}[breaklines=true]
 	private List<String> foo() {
@@ -173,5 +213,4 @@
 	}
 			\end{lstlisting}
 			%
-			
-			In un qualsiasi stream, parallelo o sequenziale, le operazioni contenute nella pipeline non devono modificare la sorgente dati, ad eccezione di alcune operazioni intermedie, e le lambda che vengono passate non devono dipendere dallo stato di qualche altro oggetto anche se esterno alla pipeline, devono quindi essere stateless. Se questi accorgimenti non vengono rispettati possiamo incorrere in risultati non corretti o ad eccezioni a runtime.
+			In un qualsiasi stream, parallelo o sequenziale, le operazioni contenute nella pipeline non devono modificare la sorgente dati, ad eccezione di alcune operazioni intermedie, inoltre le lambda che vengono passate, non devono dipendere dallo stato di qualche altro oggetto anche se esterno alla pipeline, devono quindi essere stateless. Se questi accorgimenti non vengono rispettati possiamo ottenere risultati non corretti o imbatterci in eccezioni a runtime.
