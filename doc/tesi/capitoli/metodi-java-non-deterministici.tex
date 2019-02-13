@@ -214,3 +214,42 @@
 			\end{lstlisting}
 			%
 			In un qualsiasi stream, parallelo o sequenziale, le operazioni contenute nella pipeline non devono modificare la sorgente dati, ad eccezione di alcune operazioni intermedie, inoltre le lambda che vengono passate, non devono dipendere dallo stato di qualche altro oggetto anche se esterno alla pipeline, devono quindi essere stateless. Se questi accorgimenti non vengono rispettati possiamo ottenere risultati non corretti o imbatterci in eccezioni a runtime.
+			
+	\section{java.util.Random}
+		Un'istanza di questa classe può essere utilizzata per generare uno stream di numeri pseudocasuali a partire da un seed di 48-bit. Tale seed viene modificato ad ogni invocazione con l'utilizzo della formula \textit{LCF} (Linear Congruential Formula) ed utilizzato per il calcolo del successivo numero pseudocasuale. 
+		\[ X_{n+1} = (aX_n + c) \quad \text{mod} \quad m\]
+		dove il modulo $m > 0$, il moltiplicatore $0 < a < m$, l'incremento $0 \leq c < m$ e il valore di partenza $X_0$ rappresenta il seed e deve essere compreso tra $0 \leq X_0 < m$.
+		Se due istanze di Random vengono create con lo stesso seed, queste produrranno la medesima sequenza di numeri pseudocasuali. Uno dei costruttori \lstinline|Random()| si prende cura di settare un valore di \textit{seed} che, con molta probabilità, sarà distinto da qualsiasi altra chiamata. Il secondo costruttore \lstinline|Random(int seed)| crea anch'esso un nuovo generatore di numeri pseudo casuali ma settando il valore di seed, che influenzerà i valori generati, con il valore passato. 
+		%
+		\begin{lstlisting}
+	private int rnd() {
+		return new Random().nextInt(); 
+	}
+	private int rnd1() {
+	return new Random(1993).nextInt(); 
+	}  
+		\end{lstlisting}
+		%
+		Il valore impostato dal costruttore vuoto \lstinline|Random()| non è prevedibile perché calcolato con il seguente calcolo:
+		%
+		\begin{lstlisting}[numbers=none,frame=none]
+	public Random() {
+		this(seedUniquifier() ^ System.nanoTime());
+	}
+	
+	public Random(long seed) {
+		if (getClass() == Random.class)
+			this.seed = new AtomicLong(initialScramble(seed));
+		else {
+			// subclass might have overriden setSeed
+			this.seed = new AtomicLong();
+			setSeed(seed);
+		}
+	}
+		\end{lstlisting}
+		%
+		Questo genererà un valore di seed diverso su ogni macchina che eseguirà il metodo \lstinline|rnd()| con la conseguente generazione di una sequenza di numeri pseudocasuali totalmente diversa. Tuttavia procedendo con la creazione di un'istanza della classe Random tramite il costruttore \lstinline|Random(int seed)|, fissato un \lstinline|int seed|, non accade tutto ciò, ma bensì ogni volta che si invocherà tale costruttore con il medesimo valore di \lstinline|seed|, verrà generata sempre la stessa sequenza di numeri pseudocasuali su qualsiasi JMV. Con l'unica restrizione che si utilizzi la stessa funzione LCF. 
+		Non rappresenta un'implementazione di una funzione random nel vero senso della parola, ma se si avesse bisogno di una specifica sequenza di numeri pseudocasuali, per una determinata funzione, la si può utilizzare. Un esempio di questa implementazione può essere \lstinline|rnd1()|, questo metodo ritorna semplicemente il valore restituito da \lstinline|nextInt()| che risulta essere sempre \lstinline|-1626801979|. Possiamo anche ritornare l'oggetto \lstinline|new Random(1993)|, anch'esso su qualsiasi altra JVM, applicando in modo consecutivo \lstinline|nextInt()|, si comporterebbe in modo deterministico restituendo sempre la sequenza:
+		\[ \text{-1626801979, 1700409766, -290245901, -226742933, 1081295581, \dots}\]
+		Le modalità con cui viene calcolato tale sequenza di interi sono descritte dal metodo invocato dal \lstinline|nextInt()| ovvero \lstinline|next(32)| all'interno della classe \lstinline|Random.java|.
+		Concludiamo affermando che un'istanza di \lstinline|Random(int seed)| con \lstinline|seed| fissato, si comporta in modo deterministico su tutte le JVM, quindi si presta all'utilizzo per la programmazione della blockchain.
