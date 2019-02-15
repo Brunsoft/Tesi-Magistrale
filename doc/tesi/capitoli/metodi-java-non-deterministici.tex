@@ -150,6 +150,72 @@
 			Sostituendo \lstinline|findAny()| con il metodo \lstinline|findFirst()|, come riportato sulla descrizione JavaDoc, ci viene ritornato sempre il medesimo risultato, nel nostro caso \lstinline|Jhonny: 10000|.
 			Abbiamo quindi la conferma che \lstinline|findAny()|, utilizzato soprattutto con \lstinline|parallelStream|, risulta un metodo non deterministico, quindi non utilizzabile all'interno di smart contract blockchain.
 			
+		\subsection{Metodo forEach(Consumer<? super T> action)}
+		\label{subsection-forEach}
+			Questo metodo esegue un'azione per ciascun elemento dello stream. Il comportamento di questa operazione è esplicitamente non deterministico.
+			Per le pipeline delle parallelStream  questa operazione non garantisce il rispetto dell'ordine con cui si presentano inizialmente gli elementi dello stream. Il rispetto di tale ordinamento comprometterebbe i benefici introdotti dall'analisi parallela. Le analisi su ogni elemento possono pertanto essere eseguite in qualsiasi momento e da qualsiasi thread che si libera e sceglie l'elemento di cui prendersi cura. Se l'operazione eseguita accede in modifica allo stato condiviso, dovrà provvedere a fornire l'adeguata sincronizzazione. 
+			
+			Quella appena riportata è la descrizione che Oracle da al metodo \lstinline|forEach| sulla pagina che presenta le stream \cite{java-8-stream}. Tale documentazione esprime chiaramente il non determinismo del sopracitato metodo anche se applicato a stream sequenziali. I svariati tentativi di trovare degli esempi di funzionamento non deterministi sono purtroppo falliti, le varie funzioni che facevano uso delle stream su cui applicavano il metodo \lstinline|forEach|, nel nostro caso, hanno restituito sempre gli elementi nell'ordine in cui sono stati sottoposti, ma l'affermazione \textit{"Il comportamento di questa operazione è esplicitamente non deterministico"} risulta molto chiara e ciò non significa che non si comporterà mai in modo deterministico ma bensì che tale metodo non è obbligato ad essere deterministico. Per questo motivo, il non riuscire a trovare un esempio di funzionamento anomalo che provi il non determinismo, non può voler dire che tale metodo ritorni sempre i risultati aspettati, ma bensì che non possiamo contare su di esso, specialmente se tale metodo verrà utilizzato all'interno di applicazioni che devono obbligatoriamente essere deterministiche. Possiamo quindi concludere che tale metodo non può essere incluso nei metodi white listed di \textit{takamaka}.
+			
+		\subsection{Metodo forEachOrdered(Consumer<? super T> action)}
+			Questo metodo esegue un'azione per ciascun elemento dello stream, in base all'ordine di incontro se lo stream ne ha definito uno. Questa operazione è terminale ed elabora gli elementi uno alla volta, nell'ordine di incontro. L'esecuzione dell'azione su di un elemento avviene prima di eseguire la stessa sull'elemento successivo, ma per ogni dato elemento l'azione può essere eseguita da qualsiasi thread che si libera e sceglie.
+			
+			Diversamente dal metodo \lstinline|forEach|, Sezione \ref{subsection-forEach}, questa implementazione ritorna gli elementi nello stesso ordine con cui si presentavano all'interno della sorgente di partenza. \lstinline|forEachOrdered| processa gli elementi nello stesso ordine con cui si presentano all'interno nella sorgente iniziale indipendentemente dal fatto che lo stream sia di tipo sequenziale o parallelo. Ma vediamone gli effetti applicati ad un'operazione di ricerca stringhe parallela:
+			%
+			\begin{lstlisting}[breaklines=true]
+	private void foo() {
+		List<String> lst = Arrays.asList("Jhonny", "David", "Jack", "Duke", "Jill", "Dany", "Julia", "Jenish", "Divya");
+			
+		lst.parallelStream()
+			.filter(s -> s.startsWith("J"))
+			.forEach(e -> System.out.print(e + " "));
+		
+		lst.parallelStream()
+			.filter(s -> s.startsWith("J"))
+			.forEachOrdered(e -> System.out.print(e + " "));
+	}
+			\end{lstlisting}
+			%
+			L'esecuzione del metodo qui descritto \lstinline|foo()| può generare il seguente output:
+			%
+			\begin{lstlisting}[numbers=none,frame=none]
+	Jill Jack Jenish Jhonny Julia 
+	Jhonny Jack Jill Julia Jenish 
+			\end{lstlisting}
+			%
+			Confrontando la lista \lstinline|lst| di partenza possiamo notare che gli elementi filtrati tramite \lstinline|filter(s -> s.startsWith("J"))|, nel primo caso vengono stampati in modo casuale, in base all'ordine con cui le varie thread hanno terminato l'analisi dei singoli elementi; nel secondo caso notiamo invece che l'ordine con cui vengono ritornati i vari elementi risultato combacia con l'ordine in cui compaiono tali elementi partendo dall'inizio della lista sorgente. 
+			
+			Il metodo \lstinline|forEachOrdered|, diversamente da \lstinline|forEach|, garantisce che le lambda espressioni contenute al suo interno non vengano eseguite in contemporanea da più thread, oltre a dare la certezza che gli elementi vengano ritornati nello stesso ordine con cui sono stati sottoposti allo stream, tale metodo può quindi sostituire \lstinline|forEach| assicurando così un output deterministico. La conferma di ciò la possiamo vedere nel seguente esempio:
+			%
+			\begin{lstlisting}[breaklines=true]
+	private void foo() {
+		List<String> lst = Arrays.asList("Jhonny", "David", "Jack", "Duke", "Jill", "Dany", "Julia", "Jenish", "Divya");
+	
+		List<String> lst1 = new ArrayList<String>();
+		lst2.parallelStream()
+			.filter(s -> s.startsWith("J"))
+			.forEach(e -> lst1.add(e));
+			
+		List<String> lst2 = new ArrayList<String>();
+		lst2.parallelStream()
+			.filter(s -> s.startsWith("J"))
+			.forEachOrdered(e -> lst2.add(e));
+	}
+			\end{lstlisting}
+			%
+			Il metodo qui descritto ricerca con due procedure separate gli elementi all'interno della lista \lstinline|lst| che iniziano con il carattere \textit{J}, tali elementi verranno salvati tramite le due versioni di \lstinline|forEach| all'interno di due diverse liste, \lstinline|lst1| e \lstinline|lst2|. In particolare \lstinline|lst1| potrà anche non contenere tutti i risultati, questo dato dal fatto che \lstinline|forEach| viene eseguito in modo parallelo e, dato che ArrayList non è thread safe, se due thread tentano di salvare nello stesso momento due elementi nella medesima posizione, uno dei due risultati verrà perso. \lstinline|lst2| invece, conterrà sempre gli elementi \lstinline|[Jhonny, Jack, Jill, Julia, Jenish]| che appaiono nello stesso ordine con cui comparivano nella lista sorgente \lstinline|lst|.
+			
+			Possiamo sostituire \lstinline|forEach| con la la versione ordered sia con \lstinline|stream()| che con \lstinline|parallelStream()| ma, nel primo caso l'applicazione del \lstinline|forEachOrdered| implica uno sforzo computazionale di poco superiore al costo del \lstinline|forEach|. Nel secondo caso, se applicassimo \lstinline|forEachOrdered|, imponendo, oltre al rispetto dell'ordinamento nativo della sorgente, anche che tutte le operazioni sugli elementi vengano eseguite in modo seriale, comprometteremo i benefici introdotti dall'analisi parallela. 
+			
+			Concludendo, possiamo quindi affermare che il metodo \lstinline|forEachOrdered| si comporta sempre in modo deterministico dandoci la possibilità di eseguire delle operazioni parallele in modo deterministico ma compromettendone le altrimenti elevate prestazioni. 
+		
+		
+		\subsection{Metodo peek(Consumer<? super T> action)}
+			Ritorna uno stream costituito dagli elementi dello stream, eseguendo inoltre l'azione indicata su ogni elemento mano a mano che tali elementi vengono consumati dal flusso risultante. Questa è un'operazione intermedia. Se richiamata su di un \lstinline|parallelStream()| può essere eseguita in qualsiasi momento e da qualsiasi thread. Se l'oerazione eseguita da \lstinline|peek| modifica lo stato condiviso si deve procedere con il fornire una adeguata sincronizzazione. 
+			
+			Come si evince dalla documentazione \lstinline|peek| è un'operazione intermedia, vale a dire che non termina l'elaborazione del flusso, diversamente dalle operazioni esaminate nei capitoli precedenti. Questo metodo ci permette quindi di utilizzare un flusso senza terminare la pipeline delle operazioni agendo sui contenuti dello stream. Inoltre il metodo \lstinline|peek| è un'operazione che non interferisce, cioè garantisce che i dati dello stream sorgente non vengono modificati durante la sua esecuzione. L'obiettivo del metodo \lstinline|peek| è letteralmente quello di dare un'occhiata al contenuto dello stream. E' stato infatti inserito all'interno delle API della classe \lstinline|Stream| per fornire un metodo per eseguire delle operazioni di debug. Questo metodo è perciò unico nel suo genere. Se eseguito in modo seriale, tramite \lstinline|stream()| analizza gli elementi uno ad uno e il suo comportamento sembra deterministico. Delle problematiche, come nel caso del metodo \lstinline|forEach|, sopraggiungono quando applichiamo \lstinline|peek| ad uno stream parallelo il cui ordine d'esecuzione cambia per ogni JVM. Il metodo \lstinline|peek| esegue delle lambda espressioni che possono salvare gli elementi dello stream all'interno di liste, più o meno thread safe. In definitiva questo metodo può essere molto utile sia per il debug che per eseguire analisi sui dati dello stream senza modificarne la struttura. Funziona in modo deterministico se applicato a stream seriali ma, se utilizzato su stream parallele il suo comportamento non è deterministico. Pertanto possiamo scegliere di accettarne l'utilizzo solamente se applicata ad una sorgente stream seriale.
+
+						
 		\subsection{Altri esempi di non determinismo}
 			Nel Java Doc che descrive il package \lstinline|java.util.stream| viene scritto che ad eccezione delle operazioni identificate come esplicitamente non deterministiche, come \lstinline|findAny()|, se un flusso viene eseguito in sequenza o in parallelo non dovrebbe modificare il risultato del calcolo. Con un po' di fantasia però si può pensare ad una procedura non deterministica che stampi risultati diversi se eseguita in modo seriale piuttosto che parallelo.
 			%
