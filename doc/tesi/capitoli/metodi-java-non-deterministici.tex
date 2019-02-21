@@ -287,6 +287,7 @@
 			Possiamo vedere un esempio di tutto ciò nella sezione \ref{esempi-non-det}, dove si è preferito l'utilizzo dell'istruzione terminale \lstinline|.collect(Collection.toList())| che restituisce una lista di risultati, all'utilizzo di \lstinline|.forEach(s -> result.add(s))| che inseriva gli elementi risultato all'interno di una lista precedentemente dichiarata. In questo modo, evitando gli side-effects, la funzione si comporterà in modo deterministico, ritornando sempre il risultato atteso.
 			
 	\section{java.util.Random}
+	\label{java.ulit.random}
 		Un'istanza di questa classe può essere utilizzata per generare uno stream di numeri pseudocasuali a partire da un seed di 48-bit. Tale seed viene modificato ad ogni invocazione con l'utilizzo della formula \textit{LCF} (Linear Congruential Formula) ed utilizzato per il calcolo del successivo numero pseudocasuale. 
 		\[ X_{n+1} = (aX_n + c) \quad \text{mod} \quad m\]
 		dove il modulo $m > 0$, il moltiplicatore $0 < a < m$, l'incremento $0 \leq c < m$ e il valore di partenza $X_0$ rappresenta il seed e deve essere compreso tra $0 \leq X_0 < m$.
@@ -324,3 +325,31 @@
 		\[ \text{-1626801979, 1700409766, -290245901, -226742933, 1081295581, \dots}\]
 		Le modalità con cui viene calcolato tale sequenza di interi sono descritte dal metodo invocato dal \lstinline|nextInt()| ovvero \lstinline|next(32)| all'interno della classe \lstinline|Random.java|.
 		Concludiamo affermando che un'istanza di \lstinline|Random(int seed)| con \lstinline|seed| fissato, si comporta in modo deterministico su tutte le JVM, quindi si presta all'utilizzo per la programmazione della blockchain.
+		
+	
+	\section{java.lang.System}
+		La classe \lstinline|System| contiene una vasta gamma di campi e metodi utili e non può essere istanziato.
+		
+		\subsection{Metodo currentTimeMillis()}
+			Questo metodo ritorna un \lstinline|long| che rappresenta il tempo corrente misurando i millisecondi trascorsi dalla mezzanotte del 01/01/1970 UTC. 
+			Questo metodo è utilizzato da una vasta gamma di classi tra cui \lstinline|java.util.Date|, \lstinline|java.time.Clock| e \lstinline|java.util.Timer|. Supponiamo di implementare la seguente funzione: 
+			%
+		\begin{lstlisting}
+	private long getCurrentMillis() {
+		return System.currentTimeMillis();
+	}
+		\end{lstlisting}
+			%
+			Ogni JVM che eseguirà \lstinline|getCurrentMillis()| riceverà un risultato che varia in base all'istante in cui viene eseguito. Su una qualsiasi rete blockchain i minatori non hanno tutti lo stesso ordine di esecuzione delle transazioni ma le analizzano per ordine di arrivo e in base a delle logiche di guadagno, \lstinline|fee| maggiore $\Leftrightarrow$ priorità maggiore. Per questo motivo i miner possono analizzare una transazione in momenti diversi e nel caso una transazione richiamasse la funzione \lstinline|getCurrentMillis()|, ogni JVM può potenzialmente ricavarne valori diversi. Le soluzioni apportate, per esempio, in Ethereum sono rappresentate dall'utilizzo di oracoli esterni. Ma in questo caso abbiamo bisogno di un dato istantaneo e l'utilizzo di tali oracoli non costituirebbe comunque una soluzione dato che, come visto nella sezione \ref{ethereum-oracoli}, tale dato dovrebbe prima essere trasferito sulla catena rendendo i dati disponibili in memoria all'interno di uno smart contract. Ma questi passaggi non sono istantanei e necessitano di un certo tempo per essere eseguiti, perdendo la proprietà di freshness di tale dato. Un'alternativa adottata da Solidity è quella di utilizzare alcune proprietà del blocco corrente per ricavare un timestamp utile, come per esempio \lstinline|now|, alias di \lstinline|block.timestamp| che restituisce il tempo trascorso tra la creazione del blocco corrente e il 01/01/1970 00:00:00 UTC, restituita in secondi.
+			Nel nostro caso non possiamo comunque accettare l'utilizzo del metodo \lstinline|System.currentTimeMillis()| e di tutti gli altri metodi che ne fanno uso.
+		\subsection{Metodo System.nanoTime()}
+			Questo metodo ritorna un valore temporale di esecuzione della JVM misurata in nanosecondi, può essere utilizzato solo per misurare il tempo che trascorso dato che non è in alcun modo correlato a nessuna sorgente temporale fornita dal sistema. 
+			Questo metodo lo abbiamo incontrato in precedenza quando stavamo analizzando la classe \lstinline|Random| nella sezione \ref{java.ulit.random}, veniva infatti utilizzato per inizializzare il costruttore \lstinline|Random(long Seed)| nel caso di invocazione del costrutture vuoto \lstinline|Random()|. L'utilizzo del metodo \lstinline|nanoTime()|, è in quel caso, scusato dal fatto che è fonte di una buona casualità, utile infatti per trovare un numero abbastanza "casuale". Ma vediamo come potrebbe comparire all'interno di uno smart contract:
+			%
+			\begin{lstlisting}
+	private long getNanoTime() {
+		return System.nanoTime();
+	}
+			\end{lstlisting}
+			%
+			Se un qualunque contratto richiamasse il metodo \lstinline|getNanoTime()| ogni JVM ne ricaverebbe un valore diverso con una buona fonte di casualità dato che è improbabile che due JVM siano attive dallo stesso lasso di tempo ed eseguino la stessa richiesta nel medesimo momento. E' proprio questa fonte di casualità che ci porta a scartare tale metodo dall'utilizzo su blockchain, arrivando quindi alla medesima conclusione a cui siamo arrivati nella sezione precedente, per tale fonte di casualità, scartavamo la possibilità di poter utilizzare il costruttore vuoto della classe \lstinline|Random|. Possiamo quindi scartare l'utilizzo del metodo \lstinline|System.nanoTime()| e di tutte la classi che ne fanno uso.

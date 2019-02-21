@@ -360,6 +360,7 @@ Solidity ha una variabile globale \lstinline|tx.origin|, che contiene l'indirizz
 Creiamo ora un nuovo contratto ad hoc che richiama la funzione \lstinline|withdrawAll|, all'interno del contratto vittima, passando come indirizzo \lstinline|_recipient|, l'indirizzo dell'attaccante. Se la funzione di questo nuovo contratto viene invocata dal proprietario del primo contratto, richiamerà la funzione \lstinline|withdrawAll| della vittima che trasferirà i fondi all'account dell'attaccante. Questo non significa che la variabile \lstinline|tx.origin| non debba essere utilizzata, ma piuttosto deve essere utilizzata con cautela e non per autorizzare operazioni importanti. 
 
 \section{Oracoli}
+\label{ethereum-oracoli}
 Gli oracoli sono sistemi in grado di fornire fonti di dati esterne agli smart contract di Ethereum, idealmente sono dei Sistemi \textit{trustless}, senza fiducia, nel senso che non hanno bisogno di essere fidati perché operano su principi decentrati. Un componente chiave della piattaforma Ethereum è la macchina virtuale Ethereum, con la sua capacità di eseguire programmi e aggiornare lo stato di Ethereum, vincolato da regole di consenso, su qualsiasi nodo della rete decentralizzata. Al fine di mantenere un consenso, l'esecuzione dell'EVM deve essere totalmente deterministica e basata unicamente sul contesto condiviso dello stato di Ethereum e delle transazioni firmate. Tutto ciò porta a due conseguenze principali:
 \begin{enumerate}
 	\item non ci può essere una fonte intrinseca di casualità per l'EVM e per gli smart contract con cui lavorare;
