@@ -1,19 +1,19 @@
 package takamaka.univr;
-import java.util.Date;
+
 import java.util.Map;
-import java.util.stream.Stream;
 
 import takamaka.lang.Contract;
 import takamaka.lang.Entry;
 import takamaka.lang.Payable;
 import takamaka.lang.Storage;
+import takamaka.util.Date;
 import takamaka.util.StorageMap;
 
 public class Student extends Contract {
 	private final StorageMap<Integer, Career> careers = new StorageMap<>();
-	private final Contract university;			// univr contract
+	private final Univr university;			// univr contract
 	
-	public Student(Contract university) {
+	public Student(Univr university) {
 		this.university = university;
 	}
 	
@@ -32,10 +32,12 @@ public class Student extends Contract {
 		careers.get(regNumber).addFee(fee);
 	}
 	
-	public @Payable @Entry void payFee(int regNumber, int feeId) {
+	public @Payable @Entry void payFee(int amount, int regNumber, int feeId) {
 		require(!careers.get(regNumber).tax.get(feeId).isPaid(), "The fee has already been paid");
 		require(balance() >= careers.get(regNumber).tax.get(feeId).getAmount(), "Budget not sufficient");
-		careers.get(regNumber).payFee(feeId);
+		require(amount == careers.get(regNumber).tax.get(feeId).getAmount(), "The amount of money is incorrect");
+		pay(university, amount);
+		careers.get(regNumber).setPayed(feeId);
 	}	
 	
 	public void recordEvaluation(int regNumber, int examId, int evaluation, Date date) {
@@ -54,8 +56,8 @@ public class Student extends Contract {
 	private class Career extends Storage {
 		private final int regNumber;
 		private final int courseId;
-		private final StorageMap<Integer, Fee> tax = new StorageMap<>();
-		private final StorageMap<Integer, Exam> exams = new StorageMap<>();
+		private StorageMap<Integer, Fee> tax = new StorageMap<>();
+		private StorageMap<Integer, Exam> exams = new StorageMap<>();
 		private final int academicYear;				// 2017 => 2017/2018
 		
 		private Career(int regNumber, int courseId, int academicYear) {
@@ -74,8 +76,7 @@ public class Student extends Contract {
 			exams.get(examId).recordExam(evaluation, date);
 		}
 		
-		private @Payable @Entry void payFee(int feeId) {
-			pay(university, tax.get(feeId).getAmount());
+		private void setPayed(int feeId) {
 			tax.get(feeId).setPayed();
 		}
 		
@@ -88,10 +89,9 @@ public class Student extends Contract {
 			int cfu = 0;
 			
 			for (Map.Entry<Integer, Exam> e : exams.entrySet()) {
-				Exam exam = e.getValue();
-				if (exam.isRegistered()) {
-					res += exam.getEvaluation() * exam.getCfu();
-					cfu += exam.getCfu();
+				if (e.getValue().isRegistered()) {
+					res += e.getValue().getEvaluation() * e.getValue().getCfu();
+					cfu += e.getValue().getCfu();
 				}
 			}
 			return res / cfu;
@@ -102,9 +102,8 @@ public class Student extends Contract {
 			int sum = 0;
 			
 			for (Map.Entry<Integer, Exam> e : exams.entrySet()) {
-				Exam exam = e.getValue();
-				if (exam.isRegistered()) {
-					res += exam.getEvaluation();
+				if (e.getValue().isRegistered()) {
+					res += e.getValue().getEvaluation();
 					sum ++;
 				}
 			}

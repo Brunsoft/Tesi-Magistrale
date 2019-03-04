@@ -1,6 +1,6 @@
 package takamaka.univr;
 
-import java.util.Date;
+import takamaka.util.Date;
 
 public class Exam {
 	private int id;
