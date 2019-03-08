@@ -176,14 +176,14 @@ La rappresentazione grafica di tutto questo la si può vedere in Figura \ref{fig
 \end{figure}
 
 \subsubsection{Le chiavi private}
-Come abbiamo visto poco fa, una chiave privata è semplicemente un numero scelto casualmente. E' utilizzata per creare le firme necessarie per trasferire i bitcoin, con lo scopo di dimostrare la proprietà dei fondi utilizzati nella transazione. La chiave privata deve essere:
+Come abbiamo visto poco fa, una chiave privata è semplicemente un numero scelto casualmente. \`E utilizzata per creare le firme necessarie per trasferire i bitcoin, con lo scopo di dimostrare la proprietà dei fondi utilizzati nella transazione. La chiave privata deve essere:
 \begin{itemize}
 	\item \textbf{Segreta:} rivelarla a terzi equivarrebbe a dare loro il controllo dei bitcoin associati a tale chiave.
 	\item \textbf{Protetta da perdite:} deve infatti essere conservata e protetta da perdite accidentali, se questo accadesse i fondi associati ad essa saranno anch'essi persi per sempre.
 \end{itemize}
 Il primo e più importante passo per generare chiavi è quello di trovare una fonte sicura di entropia, scegli un numero tra $1$ e $2^{256}$. Il metodo utilizzato per la selezione di tale numero non risulta importante fintanto che non sia prevedibile. Il software attuale utilizza il generatore di numeri casuali fornito dall'OS inizializzato però da una fonte esterna di casualità. Più precisamente, la chiave privata potrebbe essere un qualsiasi numero tra $1$ e $n-1$, dove $n$ è una costante ($n=1.158*10^{77}$, un po' meno di $2^{256}$), definito come ordine di curvatura della curva ellittica usata in bitcoin. Si sceglierà un numero casuale di 256 bit inferiore di $n-1$. Questo avviene eseguendo l'algoritmo SHA256 su di una stringa casuale $s$ dove $|s|>256$ bit, questo produrrà comunque un numero di 256 bit. Se tale numero risulterà inferiore di $n-1$ verrà accettato, altrimenti si ripeterà l'algoritmo con un input diverso. La seguente è una chiave privata casuale $k$ mostrata nella sua rappresentazione esadecimale (256 cifre mostrate come 64 cifre esadecimali, ognuna da 4 bit):
 \[\text{\small 1E99423A4ED27608A15A2616A2B0E9E52CED330AC530EDCC32C8FFC6A526AEDD}\]
-Per generare una nuova chiave tramite il client Bitcoin Core, si utilizza il comando $getnewaddress$. Per ragioni di sicurezza verrà mostrata solamente la chiave pubblica. E' comunque possibile chiedere a Bitcoin Core di esporre anche le chiave privata tramite il comando $dumpprivkey$ che la mostrerà in formato Base58 checksum-encoded chiamato anche \textit{Wallet Import Format} (WIF).
+Per generare una nuova chiave tramite il client Bitcoin Core, si utilizza il comando $getnewaddress$. Per ragioni di sicurezza verrà mostrata solamente la chiave pubblica. \`E comunque possibile chiedere a Bitcoin Core di esporre anche le chiave privata tramite il comando $dumpprivkey$ che la mostrerà in formato Base58 checksum-encoded chiamato anche \textit{Wallet Import Format} (WIF).
 \begin{lstlisting}
 $ bitcoind getnewaddress
  1J7mdg5rbQyUHENYdx39WVWK7fsLpEoXZy
