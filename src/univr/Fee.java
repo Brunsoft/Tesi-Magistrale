@@ -1,7 +1,8 @@
 package takamaka.univr;
 import takamaka.lang.Contract;
+import takamaka.lang.Storage;
 
-public class Fee {
+public class Fee extends Storage{
 	private Contract beneficiary;		// univr contract
 	private int id;
 	private int amount;

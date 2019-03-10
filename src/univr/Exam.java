@@ -1,8 +1,9 @@
 package takamaka.univr;
 
+import takamaka.lang.Storage;
 import takamaka.util.Date;
 
-public class Exam {
+public class Exam extends Storage{
 	private int id;
 	private String name;
 	private int cfu;
