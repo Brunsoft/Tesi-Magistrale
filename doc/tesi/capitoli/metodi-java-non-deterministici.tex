@@ -79,7 +79,7 @@
 			Supponiamo quindi di scrivere uno smart contract con all'interno il metodo \lstinline|getIterator()| riportato qui sopra, che ci da la possibilità di ritornare un iteratore dell'\lstinline|HashSet h|. Se l'ordine di iterazione non è garantito rimanere costante nel tempo, ma bensì possiamo trovarci difronte a due iteratori, ritornati dalla funzione di contratto \lstinline|getIterator()|, che iterano con un diverso ordine sugli elementi di \lstinline|h|, può portare al non determinismo su blockchain. Una cosa è certa, l'iteratore ritornato può comunque spaziare su tutti gi elementi di \lstinline|h| anche se in ordine diverso, ma partendo da due iteratori che propongono due ordinamenti diversi dello stesso hashset è possibile eseguire delle operazioni che ci portano a dei risultati diversi. Se tale risultato va ad influire sullo stato globale possiamo dedurre che non possiamo permettere l'utilizzo incontrollato di tale Classe.
 					
 	\section{java.util.HashMap}
-		L'implementazione è basata su HashTable dell'interfaccia \lstinline|Map|. Questa implementazione fornisce tutte le operazioni opzionali delle map, oltre a permettere valori \lstinline|null| e chiavi \lstinline|null|. Questa classe non fornisce garanzie sull'ordine della mappa, in particolare, non garantisce che tale ordine rimanga costante nel tempo. Questa implementazione fornisce prestazioni costanti per operazioni di base (\lstinline|get| e \lstinline|put|), assumendo che la funzione hash disperda gli elementi in modo corretto tra i vari bucket.
+		L'implementazione è basata su HashTable dell'interfaccia \lstinline|Map|. Questa implementazione fornisce tutte le operazioni opzionali delle \lstinline|Map|, oltre a permettere valori \lstinline|null| e chiavi \lstinline|null|. Questa classe non fornisce garanzie sull'ordine della mappa, in particolare, non garantisce che tale ordine rimanga costante nel tempo. Questa implementazione fornisce prestazioni costanti per operazioni di base (\lstinline|get| e \lstinline|put|), assumendo che la funzione hash disperda gli elementi in modo corretto tra i vari bucket.
 			
 		\subsection{Metodo values()}
 			Ritorna una \lstinline|Collection| view di tutti i valori contenuti nella map. Le modifiche della mappa si riflettono sulla  \lstinline|Collection| e viceversa.
@@ -94,7 +94,7 @@
 			%
 			Se un contratto implementa il metodo \lstinline|getIterator()| questo ritornerà un iteratore della Collezione che rappresenta i dati contenuti nella nostra hashMap \lstinline|h|. Purtroppo, come riportato nei java docs, la classe \lstinline|HashMap|, così come \lstinline|HashSet|, non fornisce garanzie sull'ordine delle map, ma soprattutto, non è garantito che l'ordine rimanga costante nel tempo. Per questo motivo può portare al non determinismo su blockchain.
 			
-	\section{java.util.stream}
+	\section{java.util.Stream}
 		Una \lstinline|Stream| è una sequenza di elementi che supporta operazioni di aggregazione sequenziali e parallele. Oltre a \lstinline|Stream| che è un flusso di riferimenti ad oggetti, esistono delle specializzazioni primitive per \lstinline|IntStream|, \lstinline|LongStream| e \lstinline|DoubleStream|. Per eseguire un calcolo, le operazioni di flusso sono composte in una \textit{stream pipeline}. Una stream pipeline è costituita da una \textit{sorgente} (che potrebbe essere un'array, una \lstinline|Collection|, una funzione di generazione, un canale I/O, ecc.), zero o più \textit{operazioni intermedie} (che trasformano lo stream in un altro stream, come per esempio \lstinline|filter(Predicate)|) ed infine, un'operazione \textit{terminale} (che produce un risultato o un side-effect, come per esempio \lstinline|count()| o \lstinline|forEach(Consumer)|). Gli stream sono "pigri" cioè i calcoli sui dati d'origine vengono eseguiti solamente quando viene avviata l'operazione terminale.
 		\lstinline|Collection| e \lstinline|Stream|, pur presentando alcune somiglianze superficiali, hanno obiettivi diversi. Le \lstinline|Collection| hanno l'obiettivo principale di fornire l'accesso ed una gestione efficiente ai dati che contengono. Al contrario, gli \lstinline|Stream| non forniscono un mezzo per accedere direttamente o manipolare i loro elementi, sono invece interessati alla descrizione dichiarativa della sorgente e delle operazioni di calcolo che saranno eseguite in forma aggregata sulla sorgente.	Una pipeline di flusso può essere vista come una query sull'origine dello stream.
 		
@@ -130,7 +130,7 @@
 			Restituisce un oggetto \lstinline|Optional| che descrive qualche elemento dello stream, oppure un empty \lstinline|Optional| in caso di stream vuoto. \`E un'operazione terminale ed il comportamento di questa operazione è esplicitamente non deterministico, infatti è libera di selezionare un qualsiasi elemento nello stream. Questo per consentire prestazioni massime nelle operazioni parallele, con la conseguenza che più invocazioni successive della stessa procedura sulla medesima fonte potrebbero non restituire lo stesso risultato. Il metodo alternativo stabile è \lstinline|findFirst()|.
 			%
 			\begin{lstlisting}[breaklines=true]
-	private String foo() {
+	public String foo() {
 		List<String> lst = Arrays.asList("Jhonny", "David", "Jack", "Duke", "Jill", "Dany", "Julia", "Divya");
 		
 		return lst.parallelStream()
@@ -161,7 +161,7 @@
 			Diversamente dal metodo \lstinline|forEach|, Sezione \ref{subsection-forEach}, questa implementazione ritorna gli elementi nello stesso ordine con cui si presentavano all'interno della sorgente di partenza. \lstinline|forEachOrdered| processa quindi gli elementi nello stesso ordine con cui si presentano all'interno nella sorgente iniziale indipendentemente dal fatto che lo stream sia di tipo sequenziale o parallelo. Ma vediamone gli effetti applicati ad un'operazione di ricerca stringhe parallela:
 			%
 			\begin{lstlisting}[breaklines=true]
-	private void foo() {
+	public void foo() {
 		List<String> lst = Arrays.asList("Jhonny", "David", "Jack", "Duke", "Jill", "Dany", "Julia", "Jenish", "Divya");
 			
 		lst.parallelStream()
@@ -186,7 +186,7 @@
 			Il metodo \lstinline|forEachOrdered|, diversamente da \lstinline|forEach|, garantisce che le lambda espressioni contenute al suo interno non vengano eseguite in contemporanea da più thread, oltre a dare la certezza che gli elementi vengano ritornati nello stesso ordine con cui sono stati sottoposti allo stream, tale metodo può quindi sostituire \lstinline|forEach| assicurando così un output deterministico. La conferma di ciò la possiamo vedere nel seguente esempio:
 			%
 			\begin{lstlisting}[breaklines=true]
-	private void foo() {
+	public void foo() {
 		List<String> lst = Arrays.asList("Jhonny", "David", "Jack", "Duke", "Jill", "Dany", "Julia", "Jenish", "Divya");
 	
 		List<String> lst1 = new ArrayList<String>();
@@ -219,7 +219,7 @@
 			Nel JavaDoc che descrive il package \lstinline|java.util.stream| viene scritto che ad eccezione delle operazioni identificate come esplicitamente non deterministiche, come i metodi \lstinline|findAny| e \lstinline|forEach|, se un flusso viene eseguito in sequenza o in parallelo non dovrebbe modificare il risultato del calcolo. Con un po' di fantasia però si può pensare ad una procedura non deterministica che stampi risultati diversi se eseguita in modo seriale piuttosto che parallelo.
 			%
 			\begin{lstlisting}[breaklines=true]
-	private List<String> foo() {
+	public List<String> foo() {
 		List<String> lst = Arrays.asList("Jhonny", "David", "Jack", "Duke", "Jill", "Dany", "Julia", "Divya");
 	
 		List<String> results = new ArrayList<>();
@@ -243,7 +243,7 @@
 			Una prima soluzione a questo problema può essere l'introduzione di una lista sincronizzata (thread-safe) che si prenda cura di garantire l'accesso in modo seriale alla struttura specificata. In questo modo se più thread tenteranno di accedere nello stesso momento alla lista, per aggiungere un nuovo elemento, solo una delle due thread riuscirà a salvare subito il nuovo dato, mentre l'altra resterà in attesa che la risorsa venga rilasciata. Nelle seguenti righe vediamo tale implementazione:
 			%
 			\begin{lstlisting}[breaklines=true]
-	private List<String> foo() {
+	public List<String> foo() {
 		List<String> lst = Arrays.asList("Jhonny", "David", "Jack", "Duke", "Jill", "Dany", "Julia", "Divya");
 		
 		List<String> results = Collections.synchronizedList(new ArrayList<>());
@@ -267,7 +267,7 @@
 			Nelle seguenti righe vediamo un'altra variante che rende costante l'ordinamento di \lstinline|results|:
 				%
 			\begin{lstlisting}[breaklines=true]
-	private List<String> foo() {
+	public List<String> foo() {
 		List<String> lst = Arrays.asList("Jhonny", "David", "Jack", "Duke", "Jill", "Dany", "Julia", "Divya");
 	
 		List<String> results = lst2.parallelStream()
@@ -292,11 +292,11 @@
 		Se due istanze di Random vengono create con lo stesso seed, queste produrranno la medesima sequenza di numeri pseudocasuali. Uno dei costruttori \lstinline|Random()| si prende cura di settare un valore di seed che, con molta probabilità, sarà distinto da qualsiasi altra chiamata. Il secondo costruttore \lstinline|Random(int seed)| crea anch'esso un nuovo generatore di numeri pseudo casuali ma settando il valore di seed, che influenzerà i valori generati, con il valore passato. 
 		%
 		\begin{lstlisting}
-	private int rnd() {
+	public int rnd() {
 		return new Random().nextInt(); 
 	}
 	
-	private int rnd1() {
+	public int rnd1() {
 		return new Random(1993).nextInt(); 
 	}  
 		\end{lstlisting}
@@ -333,7 +333,7 @@
 			Questo metodo è utilizzato da una vasta gamma di classi tra cui \lstinline|java.util.Date|, \lstinline|java.time.Clock| e \lstinline|java.util.Timer|. Supponiamo di implementare la seguente funzione: 
 			%
 		\begin{lstlisting}
-	private long getCurrentMillis() {
+	public long getCurrentMillis() {
 		return System.currentTimeMillis();
 	}
 		\end{lstlisting}
@@ -346,7 +346,7 @@
 			Questo metodo lo abbiamo incontrato in precedenza quando stavamo analizzando la classe \lstinline|Random| nella sezione \ref{java.util.random}, veniva infatti utilizzato per inizializzare il costruttore \lstinline|Random(long Seed)| nel caso di invocazione del costruttore vuoto \lstinline|Random()|. L'utilizzo del metodo \lstinline|nanoTime()|, è in quel caso, scusato dal fatto che è fonte di una buona casualità, utile infatti per trovare un numero abbastanza casuale. Ma vediamo come potrebbe comparire all'interno di uno smart contract:
 			%
 			\begin{lstlisting}
-	private long getNanoTime() {
+	public long getNanoTime() {
 		return System.nanoTime();
 	}
 			\end{lstlisting}
