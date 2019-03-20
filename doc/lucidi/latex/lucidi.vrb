@@ -1,0 +1,18 @@
+\frametitle{Analisi della Classe java.util.Random (2/2)}
+\begin{block}{}
+	\begin{itemize}
+		\item \textbf{new Random(int seed)} setta il valore di \lstinline|seed| indicato che influenzerà i valori generati.
+		\begin{lstlisting}[breaklines=true]
+	public int rnd() {
+		return new Random(1993).nextInt();
+	}
+		\end{lstlisting}
+	\end{itemize}
+\end{block}
+\begin{center}
+	\lstinline|58 83 97 81 90 70 41 94 80 79 51 83 32 28 73 ...|
+\end{center}
+\begin{itemize}
+	\item Comportamento deterministico
+	\item Restituisce sempre la stessa sequenza
+\end{itemize}
